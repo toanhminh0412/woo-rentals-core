@@ -203,7 +203,7 @@ paths:
 
 ## 6️⃣ Admin UI
 
-* [ ] **Menu**: Top “Rentals” with submenus “Lease Requests” & “Leases”.
+* [x] **Menu**: Top “Rentals” with submenus “Lease Requests” & “Leases”.
 * [ ] **Lease Requests List**:
 
   * Columns: ID, Product, Requester, Period, Qty, Status, Created.
