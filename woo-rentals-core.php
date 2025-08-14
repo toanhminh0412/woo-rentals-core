@@ -15,7 +15,36 @@
  */
 
 if (!defined('ABSPATH')) {
-\texit; // Exit if accessed directly.
+	exit; // Exit if accessed directly.
 }
+
+// Attempt to load Composer autoloader if present
+$composerAutoload = __DIR__ . '/vendor/autoload.php';
+if (file_exists($composerAutoload)) {
+	require_once $composerAutoload;
+} else {
+	// Minimal PSR-4 autoloader for the WRC namespace
+	spl_autoload_register(static function ($className) {
+		$namespacePrefix = 'WRC\\';
+		if (strpos($className, $namespacePrefix) !== 0) {
+			return;
+		}
+		$relativeClass = substr($className, strlen($namespacePrefix));
+		$relativePath = __DIR__ . '/src/' . str_replace('\\', '/', $relativeClass) . '.php';
+		if (file_exists($relativePath)) {
+			require_once $relativePath;
+		}
+	});
+}
+
+// Register activation hook to run installer
+register_activation_hook(__FILE__, ['WRC\\Infrastructure\\Installer', 'activate']);
+
+// Boot the plugin on plugins_loaded
+add_action('plugins_loaded', static function () {
+	if (class_exists('WRC\\Plugin')) {
+		WRC\Plugin::instance()->boot();
+	}
+});
 
 
