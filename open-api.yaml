@@ -1,0 +1,290 @@
+openapi: 3.0.3
+info:
+  title: Woo Rentals Core API
+  version: 1.0.0
+servers:
+  - url: /wp-json
+tags:
+  - name: Lease Requests
+  - name: Leases
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: header
+      name: X-WP-Nonce
+  schemas:
+    Error:
+      type: object
+      properties:
+        code: { type: string }
+        message: { type: string }
+        data:
+          type: object
+          additionalProperties: true
+    LeaseRequest:
+      type: object
+      required: [id, product_id, requester_id, start_date, end_date, qty, status, created_at]
+      properties:
+        id: { type: integer }
+        product_id: { type: integer }
+        variation_id: { type: integer, nullable: true }
+        requester_id: { type: integer }
+        start_date: { type: string, format: date }
+        end_date: { type: string, format: date }
+        qty: { type: integer, minimum: 1 }
+        notes: { type: string, nullable: true }
+        meta:
+          type: object
+          additionalProperties: true
+        status:
+          type: string
+          enum: [pending, approved, declined, cancelled]
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time, nullable: true }
+    LeaseRequestCreate:
+      type: object
+      required: [product_id, start_date, end_date, qty]
+      properties:
+        product_id: { type: integer }
+        variation_id: { type: integer, nullable: true }
+        start_date: { type: string, format: date }
+        end_date: { type: string, format: date }
+        qty: { type: integer, minimum: 1 }
+        notes: { type: string }
+        meta:
+          type: object
+          additionalProperties: true
+    LeaseRequestListResponse:
+      type: object
+      required: [items, total, page, per_page]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/LeaseRequest' }
+        total: { type: integer }
+        page: { type: integer }
+        per_page: { type: integer }
+    RequestStatusUpdate:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [approve, decline, cancel]
+        note: { type: string }
+    Lease:
+      type: object
+      required: [id, product_id, customer_id, start_date, end_date, qty, status, created_at]
+      properties:
+        id: { type: integer }
+        product_id: { type: integer }
+        variation_id: { type: integer, nullable: true }
+        order_id: { type: integer, nullable: true }
+        order_item_id: { type: integer, nullable: true }
+        customer_id: { type: integer }
+        request_id: { type: integer, nullable: true }
+        start_date: { type: string, format: date }
+        end_date: { type: string, format: date }
+        qty: { type: integer, minimum: 1 }
+        meta:
+          type: object
+          additionalProperties: true
+        status:
+          type: string
+          enum: [active, completed, cancelled]
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time, nullable: true }
+    LeaseCreate:
+      type: object
+      required: [product_id, customer_id, start_date, end_date, qty]
+      properties:
+        product_id: { type: integer }
+        variation_id: { type: integer, nullable: true }
+        customer_id: { type: integer }
+        request_id: { type: integer, nullable: true }
+        start_date: { type: string, format: date }
+        end_date: { type: string, format: date }
+        qty: { type: integer, minimum: 1 }
+        meta:
+          type: object
+          additionalProperties: true
+    LeaseListResponse:
+      type: object
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Lease' }
+        total: { type: integer }
+
+paths:
+  /wrc/v1/requests:
+    post:
+      tags: [Lease Requests]
+      summary: Create a new lease request
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LeaseRequestCreate' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LeaseRequest' }
+        '400': { description: Invalid input, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '500': { description: Database error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    get:
+      tags: [Lease Requests]
+      summary: List lease requests
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string, enum: [pending, approved, declined, cancelled] }
+        - in: query
+          name: product_id
+          schema: { type: integer }
+        - in: query
+          name: requester_id
+          schema: { type: integer, description: Set automatically when mine=true }
+        - in: query
+          name: mine
+          schema: { type: boolean }
+        - in: query
+          name: page
+          schema: { type: integer, default: 1, minimum: 1 }
+        - in: query
+          name: per_page
+          schema: { type: integer, default: 20, minimum: 1 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LeaseRequestListResponse' }
+
+  /wrc/v1/requests/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer, minimum: 1 }
+    get:
+      tags: [Lease Requests]
+      summary: Get a single lease request
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LeaseRequest' }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    post:
+      tags: [Lease Requests]
+      summary: Update lease request status
+      description: Accepts POST (and other editable methods) to change status.
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RequestStatusUpdate' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LeaseRequest' }
+        '400': { description: Invalid action, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+
+  /wrc/v1/leases:
+    post:
+      tags: [Leases]
+      summary: Create a lease
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LeaseCreate' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Lease' }
+        '400': { description: Invalid input, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '500': { description: Database error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    get:
+      tags: [Leases]
+      summary: List leases
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string, enum: [active, completed, cancelled] }
+        - in: query
+          name: product_id
+          schema: { type: integer }
+        - in: query
+          name: customer_id
+          schema: { type: integer, description: Set automatically when mine=true }
+        - in: query
+          name: mine
+          schema: { type: boolean }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LeaseListResponse' }
+
+  /wrc/v1/leases/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer, minimum: 1 }
+    get:
+      tags: [Leases]
+      summary: Get a single lease
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Lease' }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    post:
+      tags: [Leases]
+      summary: Update lease status
+      description: Accepts POST (and other editable methods) to change status.
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action:
+                  type: string
+                  enum: [complete, cancel]
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Lease' }
+        '400': { description: Invalid action, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+security:
+  - cookieAuth: []
