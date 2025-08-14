@@ -66,7 +66,7 @@
 
   Indexes: `(product_id)`, `(customer_id)`, `(status)`, `(start_date, end_date)`
 
-* [ ] Store schema version in `wrc_db_version`.
+* [x] Store schema version in `wrc_db_version`.
 
 * [ ] `Installer` checks version & runs `dbDelta()`.
 

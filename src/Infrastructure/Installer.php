@@ -6,6 +6,7 @@ namespace WRC\Infrastructure;
 
 final class Installer
 {
+	private const SCHEMA_VERSION = '1';
 	public function boot(): void
 	{
 		// Placeholder for any runtime setup needed later
@@ -19,6 +20,9 @@ final class Installer
 		// Create core tables required for operation
 		self::create_lease_requests_table();
 		self::create_leases_table();
+
+		// Store current schema version
+		update_option('wrc_db_version', self::SCHEMA_VERSION);
 	}
 
 	private static function create_lease_requests_table(): void
