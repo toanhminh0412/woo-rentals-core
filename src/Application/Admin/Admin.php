@@ -8,7 +8,7 @@ final class Admin
 {
 	public function boot(): void
 	{
-		add_action('admin_menu', [$this, 'register_menus']);
+		\add_action('admin_menu', [$this, 'register_menus']);
 	}
 
 	public function register_menus(): void
@@ -16,9 +16,9 @@ final class Admin
 		// Top-level menu
 		$capability = 'manage_wrc_requests';
 		$slug = 'wrc_rentals';
-		add_menu_page(
-			__('Rentals', 'woo-rentals-core'),
-			__('Rentals', 'woo-rentals-core'),
+		\add_menu_page(
+			\__('Rentals', 'woo-rentals-core'),
+			\__('Rentals', 'woo-rentals-core'),
 			$capability,
 			$slug,
 			[$this, 'render_requests_list'],
@@ -27,20 +27,20 @@ final class Admin
 		);
 
 		// Submenu: Lease Requests
-		add_submenu_page(
+		\add_submenu_page(
 			$slug,
-			__('Lease Requests', 'woo-rentals-core'),
-			__('Lease Requests', 'woo-rentals-core'),
+			\__('Lease Requests', 'woo-rentals-core'),
+			\__('Lease Requests', 'woo-rentals-core'),
 			'manage_wrc_requests',
 			'wrc_rentals_requests',
 			[$this, 'render_requests_list']
 		);
 
 		// Submenu: Leases
-		add_submenu_page(
+		\add_submenu_page(
 			$slug,
-			__('Leases', 'woo-rentals-core'),
-			__('Leases', 'woo-rentals-core'),
+			\__('Leases', 'woo-rentals-core'),
+			\__('Leases', 'woo-rentals-core'),
 			'manage_wrc_leases',
 			'wrc_rentals_leases',
 			[$this, 'render_leases_list']
@@ -49,18 +49,18 @@ final class Admin
 
 	public function render_requests_list(): void
 	{
-		if (!current_user_can('manage_wrc_requests')) {
-			wp_die(__('You do not have permission to view this page.', 'woo-rentals-core'));
+		if (!\current_user_can('manage_wrc_requests')) {
+			\wp_die(\__('You do not have permission to view this page.', 'woo-rentals-core'));
 		}
-		ecotemplate('admin/requests-list.php');
+		\wrc_render_template('admin/requests-list.php');
 	}
 
 	public function render_leases_list(): void
 	{
-		if (!current_user_can('manage_wrc_leases')) {
-			wp_die(__('You do not have permission to view this page.', 'woo-rentals-core'));
+		if (!\current_user_can('manage_wrc_leases')) {
+			\wp_die(\__('You do not have permission to view this page.', 'woo-rentals-core'));
 		}
-		ecotemplate('admin/leases-list.php');
+		\wrc_render_template('admin/leases-list.php');
 	}
 }
 
