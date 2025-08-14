@@ -12,15 +12,15 @@
   ├─ templates/admin/{requests-list.php, request-detail.php, leases-list.php, lease-detail.php}
   └─ assets/admin/{scripts.js, styles.css}
   ```
-* [ ] Configure Composer autoload:
+* [x] Configure Composer autoload:
 
   ```json
   {
     "autoload": { "psr-4": { "WRC\\": "src/" } }
   }
   ```
-* [ ] `Plugin.php` boots REST, Admin, Installer.
-* [ ] Register activation hook → `Installer::activate()`.
+* [x] `Plugin.php` boots REST, Admin, Installer.
+* [x] Register activation hook → `Installer::activate()`.
 
 ---
 
