@@ -12,10 +12,44 @@ final class Installer
 	}
 	public static function activate(): void
 	{
-		// Placeholder: schema will be created in a later task
 		if (!get_option('wrc_db_version')) {
 			add_option('wrc_db_version', '0');
 		}
+
+		// Create core tables required for operation
+		self::create_lease_requests_table();
+	}
+
+	private static function create_lease_requests_table(): void
+	{
+		global $wpdb;
+
+		$tableName = $wpdb->prefix . 'wrc_lease_requests';
+		$charsetCollate = $wpdb->get_charset_collate();
+
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+
+		$sql = "CREATE TABLE {$tableName} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			product_id bigint(20) unsigned NOT NULL,
+			variation_id bigint(20) unsigned DEFAULT NULL,
+			requester_id bigint(20) unsigned NOT NULL,
+			start_date date NOT NULL,
+			end_date date NOT NULL,
+			qty int(11) NOT NULL DEFAULT 1,
+			notes text NULL,
+			meta longtext NULL,
+			status ENUM('pending','approved','declined','cancelled') NOT NULL DEFAULT 'pending',
+			created_at datetime NOT NULL,
+			updated_at datetime DEFAULT NULL,
+			PRIMARY KEY  (id),
+			KEY product_id (product_id),
+			KEY requester_id (requester_id),
+			KEY status (status),
+			KEY start_end (start_date, end_date)
+		) {$charsetCollate};";
+
+		dbDelta($sql);
 	}
 }
 
