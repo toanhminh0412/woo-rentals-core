@@ -108,6 +108,7 @@ paths:
                 end_date: { type: string, format: date }
                 qty: { type: integer, minimum: 1 }
                 notes: { type: string }
+                meta: { type: object, additionalProperties: true }
       responses:
         '201': { description: Lease request created }
     get:
@@ -157,6 +158,7 @@ paths:
                 start_date: { type: string, format: date }
                 end_date: { type: string, format: date }
                 qty: { type: integer, minimum: 1 }
+                meta: { type: object, additionalProperties: true }
       responses:
         '201': { description: Lease created }
     get:
