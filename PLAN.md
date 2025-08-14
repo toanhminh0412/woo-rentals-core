@@ -68,7 +68,7 @@
 
 * [x] Store schema version in `wrc_db_version`.
 
-* [ ] `Installer` checks version & runs `dbDelta()`.
+* [x] `Installer` checks version & runs `dbDelta()`.
 
 ---
 

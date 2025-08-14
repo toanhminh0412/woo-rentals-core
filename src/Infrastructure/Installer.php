@@ -13,16 +13,18 @@ final class Installer
 	}
 	public static function activate(): void
 	{
-		if (!get_option('wrc_db_version')) {
+		$installedVersion = get_option('wrc_db_version');
+		if ($installedVersion === false) {
 			add_option('wrc_db_version', '0');
+			$installedVersion = '0';
 		}
 
-		// Create core tables required for operation
-		self::create_lease_requests_table();
-		self::create_leases_table();
-
-		// Store current schema version
-		update_option('wrc_db_version', self::SCHEMA_VERSION);
+		// Only run schema (dbDelta) when version changes
+		if ($installedVersion !== self::SCHEMA_VERSION) {
+			self::create_lease_requests_table();
+			self::create_leases_table();
+			update_option('wrc_db_version', self::SCHEMA_VERSION);
+		}
 	}
 
 	private static function create_lease_requests_table(): void
