@@ -190,12 +190,12 @@ paths:
 
 ## 5️⃣ Domain & Application Layer
 
-* [ ] **Entities**: `LeaseRequest`, `Lease` (constructors enforce data validity).
-* [ ] **Use-cases**:
+* [x] **Entities**: `LeaseRequest`, `Lease` (constructors enforce data validity).
+* [x] **Use-cases**:
 
   * `CreateLeaseRequest`, `ApproveLeaseRequest`, `DeclineLeaseRequest`, `CancelLeaseRequest`
   * `CreateLease`, `CompleteLease`, `CancelLease`
-* [ ] **Repositories** for both tables:
+* [x] **Repositories** for both tables:
 
   * `insert`, `update_status`, `find_by_id`, `list`.
 
