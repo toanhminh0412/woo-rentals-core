@@ -204,23 +204,23 @@ paths:
 ## 6️⃣ Admin UI
 
 * [x] **Menu**: Top “Rentals” with submenus “Lease Requests” & “Leases”.
-* [ ] **Lease Requests List**:
+* [x] **Lease Requests List**:
 
   * Columns: ID, Product, Requester, Period, Qty, Status, Created.
   * Filters: status, product, date range.
   * Row actions: View, Approve, Decline, Cancel.
-* [ ] **Lease Request Detail**:
+* [x] **Lease Request Detail**:
 
   * Read-only info, notes, status actions.
-* [ ] **Leases List**:
+* [x] **Leases List**:
 
   * Columns: ID, Product, Customer, Period, Qty, Status, Created.
   * Row actions: View, Complete, Cancel.
-* [ ] **Lease Detail**:
+* [x] **Lease Detail**:
 
   * Read-only info, status actions.
-* [ ] Use `WP_List_Table` for lists, PHP templates for detail pages.
-* [ ] Enqueue small JS to call REST endpoints for actions (nonce protected).
+* [x] Use `WP_List_Table` for lists, PHP templates for detail pages.
+* [x] Enqueue small JS to call REST endpoints for actions (nonce protected).
 
 ---
 
