@@ -140,6 +140,140 @@ final class LeaseRequest
 		}
 		return $map;
 	}
+
+	// ===== Persistence Helpers =====
+	private static function tableName(): string
+	{
+		global $wpdb;
+		return $wpdb->prefix . 'wrc_lease_requests';
+	}
+
+	/** @param array<string,mixed> $meta */
+	private static function encodeMeta(array $meta): string
+	{
+		$json = \wp_json_encode($meta);
+		return is_string($json) ? $json : '{}';
+	}
+
+	/** @return array<string,mixed> */
+	private static function decodeMeta(?string $json): array
+	{
+		if ($json === null || $json === '') {
+			return [];
+		}
+		$decoded = json_decode($json, true);
+		return is_array($decoded) ? $decoded : [];
+	}
+
+	/** Insert and return new ID */
+	public static function create(LeaseRequest $request): int
+	{
+		global $wpdb;
+		$nowUtc = gmdate('Y-m-d H:i:s');
+		$inserted = $wpdb->insert(
+			self::tableName(),
+			[
+				'product_id' => $request->getProductId(),
+				'variation_id' => $request->getVariationId(),
+				'requester_id' => $request->getRequesterId(),
+				'start_date' => $request->getStartDate()->format('Y-m-d'),
+				'end_date' => $request->getEndDate()->format('Y-m-d'),
+				'qty' => $request->getQuantity(),
+				'notes' => $request->getNotes(),
+				'meta' => self::encodeMeta($request->getMeta()),
+				'status' => $request->getStatus(),
+				'created_at' => $nowUtc,
+			],
+			['%d','%d','%d','%s','%s','%d','%s','%s','%s','%s']
+		);
+		if ($inserted === false) {
+			throw new \RuntimeException('Failed to insert lease request');
+		}
+		return (int)$wpdb->insert_id;
+	}
+
+	/** @return array<string,mixed>|null */
+	public static function findByIdArray(int $id): ?array
+	{
+		global $wpdb;
+		$sql = 'SELECT * FROM ' . self::tableName() . ' WHERE id = %d';
+		$row = $wpdb->get_row($wpdb->prepare($sql, [$id]));
+		return $row ? self::mapRowToArray($row) : null;
+	}
+
+	/**
+	 * @param array{status?:string,product_id?:int,requester_id?:int} $filters
+	 * @return array{items: array<int, array<string,mixed>>, total: int, page: int, per_page: int}
+	 */
+	public static function listAsArray(array $filters, int $page, int $perPage): array
+	{
+		global $wpdb;
+		$where = [];
+		$args = [];
+		if (!empty($filters['status'])) {
+			$where[] = 'status = %s';
+			$args[] = (string)$filters['status'];
+		}
+		if (!empty($filters['product_id'])) {
+			$where[] = 'product_id = %d';
+			$args[] = (int)$filters['product_id'];
+		}
+		if (!empty($filters['requester_id'])) {
+			$where[] = 'requester_id = %d';
+			$args[] = (int)$filters['requester_id'];
+		}
+		$whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
+
+		$page = max(1, $page);
+		$perPage = $perPage > 0 ? $perPage : 20;
+		$offset = ($page - 1) * $perPage;
+
+		$totalSql = 'SELECT COUNT(*) FROM ' . self::tableName() . ' ' . $whereSql;
+		$total = (int)$wpdb->get_var($wpdb->prepare($totalSql, $args));
+
+		$listSql = 'SELECT * FROM ' . self::tableName() . ' ' . $whereSql . ' ORDER BY created_at DESC LIMIT %d OFFSET %d';
+		$listArgs = array_merge($args, [$perPage, $offset]);
+		$rows = $wpdb->get_results($wpdb->prepare($listSql, $listArgs));
+		$items = array_map([self::class, 'mapRowToArray'], $rows ?: []);
+
+		return [
+			'items' => $items,
+			'total' => $total,
+			'page' => $page,
+			'per_page' => $perPage,
+		];
+	}
+
+	public static function updateStatus(int $id, string $status): void
+	{
+		global $wpdb;
+		$wpdb->update(
+			self::tableName(),
+			['status' => $status, 'updated_at' => gmdate('Y-m-d H:i:s')],
+			['id' => $id],
+			['%s','%s'],
+			['%d']
+		);
+	}
+
+	/** @return array<string,mixed> */
+	public static function mapRowToArray(object $row): array
+	{
+		return [
+			'id' => (int)$row->id,
+			'product_id' => (int)$row->product_id,
+			'variation_id' => $row->variation_id !== null ? (int)$row->variation_id : null,
+			'requester_id' => (int)$row->requester_id,
+			'start_date' => (string)$row->start_date,
+			'end_date' => (string)$row->end_date,
+			'qty' => (int)$row->qty,
+			'notes' => $row->notes !== null ? (string)$row->notes : null,
+			'meta' => self::decodeMeta($row->meta ?? null),
+			'status' => (string)$row->status,
+			'created_at' => (string)$row->created_at,
+			'updated_at' => $row->updated_at !== null ? (string)$row->updated_at : null,
+		];
+	}
 }
 
 

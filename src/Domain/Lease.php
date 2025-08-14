@@ -145,6 +145,129 @@ final class Lease
 		}
 		return $map;
 	}
+
+	// ===== Persistence Helpers =====
+	private static function tableName(): string
+	{
+		global $wpdb;
+		return $wpdb->prefix . 'wrc_leases';
+	}
+
+	/** @param array<string,mixed> $meta */
+	private static function encodeMeta(array $meta): string
+	{
+		$json = \wp_json_encode($meta);
+		return is_string($json) ? $json : '{}';
+	}
+
+	/** @return array<string,mixed> */
+	private static function decodeMeta(?string $json): array
+	{
+		if ($json === null || $json === '') {
+			return [];
+		}
+		$decoded = json_decode($json, true);
+		return is_array($decoded) ? $decoded : [];
+	}
+
+	/** Insert and return new ID */
+	public static function create(Lease $lease): int
+	{
+		global $wpdb;
+		$nowUtc = gmdate('Y-m-d H:i:s');
+		$inserted = $wpdb->insert(
+			self::tableName(),
+			[
+				'product_id' => $lease->getProductId(),
+				'variation_id' => $lease->getVariationId(),
+				'order_id' => $lease->getOrderId(),
+				'order_item_id' => $lease->getOrderItemId(),
+				'customer_id' => $lease->getCustomerId(),
+				'request_id' => $lease->getRequestId(),
+				'start_date' => $lease->getStartDate()->format('Y-m-d'),
+				'end_date' => $lease->getEndDate()->format('Y-m-d'),
+				'qty' => $lease->getQuantity(),
+				'meta' => self::encodeMeta($lease->getMeta()),
+				'status' => $lease->getStatus(),
+				'created_at' => $nowUtc,
+			],
+			['%d','%d','%d','%d','%d','%d','%s','%s','%d','%s','%s','%s']
+		);
+		if ($inserted === false) {
+			throw new \RuntimeException('Failed to insert lease');
+		}
+		return (int)$wpdb->insert_id;
+	}
+
+	/** @return array<string,mixed>|null */
+	public static function findByIdArray(int $id): ?array
+	{
+		global $wpdb;
+		$sql = 'SELECT * FROM ' . self::tableName() . ' WHERE id = %d';
+		$row = $wpdb->get_row($wpdb->prepare($sql, [$id]));
+		return $row ? self::mapRowToArray($row) : null;
+	}
+
+	/**
+	 * @param array{status?:string,product_id?:int,customer_id?:int} $filters
+	 * @return array<int, array<string,mixed>>
+	 */
+	public static function listAsArray(array $filters): array
+	{
+		global $wpdb;
+		$where = [];
+		$args = [];
+		if (!empty($filters['status'])) {
+			$where[] = 'status = %s';
+			$args[] = (string)$filters['status'];
+		}
+		if (!empty($filters['product_id'])) {
+			$where[] = 'product_id = %d';
+			$args[] = (int)$filters['product_id'];
+		}
+		if (!empty($filters['customer_id'])) {
+			$where[] = 'customer_id = %d';
+			$args[] = (int)$filters['customer_id'];
+		}
+		$whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
+
+		$sql = 'SELECT * FROM ' . self::tableName() . ' ' . $whereSql . ' ORDER BY created_at DESC LIMIT 100';
+		$rows = $wpdb->get_results($wpdb->prepare($sql, $args));
+		return array_map([self::class, 'mapRowToArray'], $rows ?: []);
+	}
+
+	public static function updateStatus(int $id, string $status): void
+	{
+		global $wpdb;
+		$wpdb->update(
+			self::tableName(),
+			['status' => $status, 'updated_at' => gmdate('Y-m-d H:i:s')],
+			['id' => $id],
+			['%s','%s'],
+			['%d']
+		);
+	}
+
+	/** @return array<string,mixed> */
+	public static function mapRowToArray(object $row): array
+	{
+		return [
+			'id' => (int)$row->id,
+			'product_id' => (int)$row->product_id,
+			'variation_id' => $row->variation_id !== null ? (int)$row->variation_id : null,
+			'order_id' => $row->order_id !== null ? (int)$row->order_id : null,
+			'order_item_id' => $row->order_item_id !== null ? (int)$row->order_item_id : null,
+			'customer_id' => (int)$row->customer_id,
+			'request_id' => $row->request_id !== null ? (int)$row->request_id : null,
+			'start_date' => (string)$row->start_date,
+			'end_date' => (string)$row->end_date,
+			'qty' => (int)$row->qty,
+			'meta' => self::decodeMeta($row->meta ?? null),
+			'status' => (string)$row->status,
+			'created_at' => (string)$row->created_at,
+			'updated_at' => $row->updated_at !== null ? (string)$row->updated_at : null,
+		];
+	}
 }
 
 
