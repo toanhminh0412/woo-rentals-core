@@ -151,8 +151,9 @@ final class LeaseRequest
 	/** @param array<string,mixed> $meta */
 	private static function encodeMeta(array $meta): string
 	{
-		$json = \wp_json_encode($meta);
-		return is_string($json) ? $json : '{}';
+		$encoder = function_exists('wp_json_encode') ? 'wp_json_encode' : 'json_encode';
+		$encoded = \call_user_func($encoder, $meta);
+		return is_string($encoded) ? $encoded : '{}';
 	}
 
 	/** @return array<string,mixed> */
@@ -229,7 +230,10 @@ final class LeaseRequest
 		$offset = ($page - 1) * $perPage;
 
 		$totalSql = 'SELECT COUNT(*) FROM ' . self::tableName() . ' ' . $whereSql;
-		$total = (int)$wpdb->get_var($wpdb->prepare($totalSql, $args));
+		$total = (int)($args
+			? $wpdb->get_var($wpdb->prepare($totalSql, $args))
+			: $wpdb->get_var($totalSql)
+		);
 
 		$listSql = 'SELECT * FROM ' . self::tableName() . ' ' . $whereSql . ' ORDER BY created_at DESC LIMIT %d OFFSET %d';
 		$listArgs = array_merge($args, [$perPage, $offset]);

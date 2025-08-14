@@ -156,8 +156,9 @@ final class Lease
 	/** @param array<string,mixed> $meta */
 	private static function encodeMeta(array $meta): string
 	{
-		$json = \wp_json_encode($meta);
-		return is_string($json) ? $json : '{}';
+		$encoder = function_exists('wp_json_encode') ? 'wp_json_encode' : 'json_encode';
+		$encoded = \call_user_func($encoder, $meta);
+		return is_string($encoded) ? $encoded : '{}';
 	}
 
 	/** @return array<string,mixed> */
@@ -232,7 +233,9 @@ final class Lease
 		$whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
 
 		$sql = 'SELECT * FROM ' . self::tableName() . ' ' . $whereSql . ' ORDER BY created_at DESC LIMIT 100';
-		$rows = $wpdb->get_results($wpdb->prepare($sql, $args));
+		$rows = $args
+			? $wpdb->get_results($wpdb->prepare($sql, $args))
+			: $wpdb->get_results($sql);
 		return array_map([self::class, 'mapRowToArray'], $rows ?: []);
 	}
 
