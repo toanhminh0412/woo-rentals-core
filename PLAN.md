@@ -2,7 +2,7 @@
 
 ## 1️⃣ Setup & Bootstrapping
 
-* [ ] Create `woo-rentals-core` plugin folder with PSR-4 structure:
+* [x] Create `woo-rentals-core` plugin folder with PSR-4 structure:
 
   ```
   woo-rentals-core/
