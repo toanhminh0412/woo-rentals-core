@@ -18,6 +18,7 @@ final class Installer
 
 		// Create core tables required for operation
 		self::create_lease_requests_table();
+		self::create_leases_table();
 	}
 
 	private static function create_lease_requests_table(): void
@@ -45,6 +46,40 @@ final class Installer
 			PRIMARY KEY  (id),
 			KEY product_id (product_id),
 			KEY requester_id (requester_id),
+			KEY status (status),
+			KEY start_end (start_date, end_date)
+		) {$charsetCollate};";
+
+		dbDelta($sql);
+	}
+
+	private static function create_leases_table(): void
+	{
+		global $wpdb;
+
+		$tableName = $wpdb->prefix . 'wrc_leases';
+		$charsetCollate = $wpdb->get_charset_collate();
+
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+
+		$sql = "CREATE TABLE {$tableName} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			product_id bigint(20) unsigned NOT NULL,
+			variation_id bigint(20) unsigned DEFAULT NULL,
+			order_id bigint(20) unsigned DEFAULT NULL,
+			order_item_id bigint(20) unsigned DEFAULT NULL,
+			customer_id bigint(20) unsigned NOT NULL,
+			request_id bigint(20) unsigned DEFAULT NULL,
+			start_date date NOT NULL,
+			end_date date NOT NULL,
+			qty int(11) NOT NULL DEFAULT 1,
+			meta longtext NULL,
+			status ENUM('active','completed','cancelled') NOT NULL DEFAULT 'active',
+			created_at datetime NOT NULL,
+			updated_at datetime DEFAULT NULL,
+			PRIMARY KEY  (id),
+			KEY product_id (product_id),
+			KEY customer_id (customer_id),
 			KEY status (status),
 			KEY start_end (start_date, end_date)
 		) {$charsetCollate};";
