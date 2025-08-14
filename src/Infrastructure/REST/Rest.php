@@ -170,52 +170,84 @@ final class Rest
 			return new WP_Error('wrc_invalid_input', $e->getMessage(), ['status' => 400]);
 		}
 
-		$response = [
-			'id' => 0,
-			'product_id' => $entity->getProductId(),
-			'variation_id' => $entity->getVariationId(),
-			'qty' => $entity->getQuantity(),
-			'start_date' => $entity->getStartDate()->format('Y-m-d'),
-			'end_date' => $entity->getEndDate()->format('Y-m-d'),
-			'notes' => $entity->getNotes(),
-			'meta' => $entity->getMeta(),
-			'status' => $entity->getStatus(),
-			'message' => 'Lease request created (stub)'
-		];
+		global $wpdb;
+		$nowUtc = gmdate('Y-m-d H:i:s');
+		$inserted = $wpdb->insert(
+			$this->table_lease_requests(),
+			[
+				'product_id' => $entity->getProductId(),
+				'variation_id' => $entity->getVariationId(),
+				'requester_id' => $requesterId,
+				'start_date' => $entity->getStartDate()->format('Y-m-d'),
+				'end_date' => $entity->getEndDate()->format('Y-m-d'),
+				'qty' => $entity->getQuantity(),
+				'notes' => $entity->getNotes(),
+				'meta' => $this->encode_meta($entity->getMeta()),
+				'status' => $entity->getStatus(),
+				'created_at' => $nowUtc,
+			],
+			['%d','%d','%d','%s','%s','%d','%s','%s','%s','%s']
+		);
+		if ($inserted === false) {
+			return new WP_Error('wrc_db_error', 'Failed to create lease request.', ['status' => 500]);
+		}
+		$id = (int)$wpdb->insert_id;
 
-		return new WP_REST_Response($response, 201);
+		return new WP_REST_Response($this->get_request_by_id_array($id), 201);
 	}
 
 	public function list_requests(WP_REST_Request $request): WP_REST_Response
 	{
+		global $wpdb;
+		$where = [];
+		$args = [];
 		$status = (string)$request->get_param('status');
+		if ($status !== '') {
+			$where[] = 'status = %s';
+			$args[] = $status;
+		}
 		$productId = absint((string)$request->get_param('product_id'));
+		if ($productId > 0) {
+			$where[] = 'product_id = %d';
+			$args[] = $productId;
+		}
 		$mine = filter_var((string)$request->get_param('mine'), FILTER_VALIDATE_BOOLEAN);
+		if ($mine) {
+			$requesterId = get_current_user_id();
+			$where[] = 'requester_id = %d';
+			$args[] = $requesterId;
+		}
+		$whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
+
 		$page = max(1, (int)$request->get_param('page'));
-		$perPage = max(1, (int)$request->get_param('per_page')) ?: 20;
+		$perPage = (int)$request->get_param('per_page');
+		$perPage = $perPage > 0 ? $perPage : 20;
+		$offset = ($page - 1) * $perPage;
 
-		$data = [
-			'filters' => [
-				'status' => $status,
-				'product_id' => $productId,
-				'mine' => $mine,
-				'page' => $page,
-				'per_page' => $perPage,
-			],
-			'items' => [],
-			'total' => 0,
-		];
+		$totalSql = "SELECT COUNT(*) FROM {$this->table_lease_requests()} {$whereSql}";
+		$total = (int)$wpdb->get_var($wpdb->prepare($totalSql, $args));
 
-		return new WP_REST_Response($data, 200);
+		$listSql = "SELECT * FROM {$this->table_lease_requests()} {$whereSql} ORDER BY created_at DESC LIMIT %d OFFSET %d";
+		$listArgs = array_merge($args, [$perPage, $offset]);
+		$rows = $wpdb->get_results($wpdb->prepare($listSql, $listArgs));
+		$items = array_map([$this, 'map_request_row_to_array'], $rows ?: []);
+
+		return new WP_REST_Response([
+			'items' => $items,
+			'total' => $total,
+			'page' => $page,
+			'per_page' => $perPage,
+		], 200);
 	}
 
-	public function get_request(WP_REST_Request $request): WP_REST_Response
+	public function get_request(WP_REST_Request $request): WP_REST_Response|WP_Error
 	{
 		$id = absint($request['id']);
-		return new WP_REST_Response([
-			'id' => $id,
-			'message' => 'Lease request detail (stub)'
-		], 200);
+		$record = $this->get_request_by_id_array($id);
+		if ($record === null) {
+			return new WP_Error('wrc_not_found', 'Lease request not found.', ['status' => 404]);
+		}
+		return new WP_REST_Response($record, 200);
 	}
 
 	public function update_request_status(WP_REST_Request $request): WP_REST_Response|WP_Error
@@ -228,12 +260,19 @@ final class Rest
 		if (!in_array($action, $allowed, true)) {
 			return new WP_Error('wrc_invalid_action', 'Invalid action.', ['status' => 400]);
 		}
-		return new WP_REST_Response([
-			'id' => $id,
-			'action' => $action,
-			'note' => $note,
-			'message' => 'Lease request status updated (stub)'
-		], 200);
+		global $wpdb;
+		$existing = $this->get_request_by_id_array($id);
+		if ($existing === null) {
+			return new WP_Error('wrc_not_found', 'Lease request not found.', ['status' => 404]);
+		}
+		$wpdb->update(
+			$this->table_lease_requests(),
+			['status' => $action, 'updated_at' => gmdate('Y-m-d H:i:s')],
+			['id' => $id],
+			['%s','%s'],
+			['%d']
+		);
+		return new WP_REST_Response($this->get_request_by_id_array($id), 200);
 	}
 
 	// Handlers — Leases
@@ -274,51 +313,77 @@ final class Rest
 			return new WP_Error('wrc_invalid_input', $e->getMessage(), ['status' => 400]);
 		}
 
-		$response = [
-			'id' => 0,
-			'product_id' => $entity->getProductId(),
-			'variation_id' => $entity->getVariationId(),
-			'customer_id' => $entity->getCustomerId(),
-			'request_id' => $entity->getRequestId(),
-			'qty' => $entity->getQuantity(),
-			'start_date' => $entity->getStartDate()->format('Y-m-d'),
-			'end_date' => $entity->getEndDate()->format('Y-m-d'),
-			'meta' => $entity->getMeta(),
-			'status' => $entity->getStatus(),
-			'message' => 'Lease created (stub)'
-		];
-
-		return new WP_REST_Response($response, 201);
+		global $wpdb;
+		$nowUtc = gmdate('Y-m-d H:i:s');
+		$inserted = $wpdb->insert(
+			$this->table_leases(),
+			[
+				'product_id' => $entity->getProductId(),
+				'variation_id' => $entity->getVariationId(),
+				'order_id' => null,
+				'order_item_id' => null,
+				'customer_id' => $entity->getCustomerId(),
+				'request_id' => $entity->getRequestId(),
+				'start_date' => $entity->getStartDate()->format('Y-m-d'),
+				'end_date' => $entity->getEndDate()->format('Y-m-d'),
+				'qty' => $entity->getQuantity(),
+				'meta' => $this->encode_meta($entity->getMeta()),
+				'status' => $entity->getStatus(),
+				'created_at' => $nowUtc,
+			],
+			['%d','%d','%d','%d','%d','%d','%s','%s','%d','%s','%s','%s']
+		);
+		if ($inserted === false) {
+			return new WP_Error('wrc_db_error', 'Failed to create lease.', ['status' => 500]);
+		}
+		$id = (int)$wpdb->insert_id;
+		return new WP_REST_Response($this->get_lease_by_id_array($id), 201);
 	}
 
 	public function list_leases(WP_REST_Request $request): WP_REST_Response
 	{
+		global $wpdb;
+		$where = [];
+		$args = [];
 		$status = (string)$request->get_param('status');
+		if ($status !== '') {
+			$where[] = 'status = %s';
+			$args[] = $status;
+		}
 		$productId = absint((string)$request->get_param('product_id'));
+		if ($productId > 0) {
+			$where[] = 'product_id = %d';
+			$args[] = $productId;
+		}
 		$customerId = absint((string)$request->get_param('customer_id'));
 		$mine = filter_var((string)$request->get_param('mine'), FILTER_VALIDATE_BOOLEAN);
+		if ($mine) {
+			$customerId = get_current_user_id();
+		}
+		if ($customerId > 0) {
+			$where[] = 'customer_id = %d';
+			$args[] = $customerId;
+		}
+		$whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
 
-		$data = [
-			'filters' => [
-				'status' => $status,
-				'product_id' => $productId,
-				'customer_id' => $customerId,
-				'mine' => $mine,
-			],
-			'items' => [],
-			'total' => 0,
-		];
+		$sql = "SELECT * FROM {$this->table_leases()} {$whereSql} ORDER BY created_at DESC LIMIT 100";
+		$rows = $wpdb->get_results($wpdb->prepare($sql, $args));
+		$items = array_map([$this, 'map_lease_row_to_array'], $rows ?: []);
 
-		return new WP_REST_Response($data, 200);
+		return new WP_REST_Response([
+			'items' => $items,
+			'total' => count($items),
+		], 200);
 	}
 
-	public function get_lease(WP_REST_Request $request): WP_REST_Response
+	public function get_lease(WP_REST_Request $request): WP_REST_Response|WP_Error
 	{
 		$id = absint($request['id']);
-		return new WP_REST_Response([
-			'id' => $id,
-			'message' => 'Lease detail (stub)'
-		], 200);
+		$record = $this->get_lease_by_id_array($id);
+		if ($record === null) {
+			return new WP_Error('wrc_not_found', 'Lease not found.', ['status' => 404]);
+		}
+		return new WP_REST_Response($record, 200);
 	}
 
 	public function update_lease_status(WP_REST_Request $request): WP_REST_Response|WP_Error
@@ -330,11 +395,19 @@ final class Rest
 		if (!in_array($action, $allowed, true)) {
 			return new WP_Error('wrc_invalid_action', 'Invalid action.', ['status' => 400]);
 		}
-		return new WP_REST_Response([
-			'id' => $id,
-			'action' => $action,
-			'message' => 'Lease status updated (stub)'
-		], 200);
+		global $wpdb;
+		$existing = $this->get_lease_by_id_array($id);
+		if ($existing === null) {
+			return new WP_Error('wrc_not_found', 'Lease not found.', ['status' => 404]);
+		}
+		$wpdb->update(
+			$this->table_leases(),
+			['status' => $action, 'updated_at' => gmdate('Y-m-d H:i:s')],
+			['id' => $id],
+			['%s','%s'],
+			['%d']
+		);
+		return new WP_REST_Response($this->get_lease_by_id_array($id), 200);
 	}
 
 	// Utilities
@@ -342,6 +415,94 @@ final class Rest
 	{
 		$dt = \DateTime::createFromFormat('Y-m-d', $date);
 		return $dt !== false && $dt->format('Y-m-d') === $date;
+	}
+
+	// DB helpers
+	private function table_lease_requests(): string
+	{
+		global $wpdb;
+		return $wpdb->prefix . 'wrc_lease_requests';
+	}
+
+	private function table_leases(): string
+	{
+		global $wpdb;
+		return $wpdb->prefix . 'wrc_leases';
+	}
+
+	/** @param array<string,mixed> $meta */
+	private function encode_meta(array $meta): string
+	{
+		$json = wp_json_encode($meta);
+		return is_string($json) ? $json : '{}';
+	}
+
+	/** @return array<string,mixed> */
+	private function decode_meta(?string $json): array
+	{
+		if ($json === null || $json === '') {
+			return [];
+		}
+		$decoded = json_decode($json, true);
+		return is_array($decoded) ? $decoded : [];
+	}
+
+	/** @return array<string,mixed>|null */
+	private function get_request_by_id_array(int $id): ?array
+	{
+		global $wpdb;
+		$sql = "SELECT * FROM {$this->table_lease_requests()} WHERE id = %d";
+		$row = $wpdb->get_row($wpdb->prepare($sql, [$id]));
+		return $row ? $this->map_request_row_to_array($row) : null;
+	}
+
+	/** @return array<string,mixed> */
+	private function map_request_row_to_array(object $row): array
+	{
+		return [
+			'id' => (int)$row->id,
+			'product_id' => (int)$row->product_id,
+			'variation_id' => $row->variation_id !== null ? (int)$row->variation_id : null,
+			'requester_id' => (int)$row->requester_id,
+			'start_date' => (string)$row->start_date,
+			'end_date' => (string)$row->end_date,
+			'qty' => (int)$row->qty,
+			'notes' => $row->notes !== null ? (string)$row->notes : null,
+			'meta' => $this->decode_meta($row->meta ?? null),
+			'status' => (string)$row->status,
+			'created_at' => (string)$row->created_at,
+			'updated_at' => $row->updated_at !== null ? (string)$row->updated_at : null,
+		];
+	}
+
+	/** @return array<string,mixed>|null */
+	private function get_lease_by_id_array(int $id): ?array
+	{
+		global $wpdb;
+		$sql = "SELECT * FROM {$this->table_leases()} WHERE id = %d";
+		$row = $wpdb->get_row($wpdb->prepare($sql, [$id]));
+		return $row ? $this->map_lease_row_to_array($row) : null;
+	}
+
+	/** @return array<string,mixed> */
+	private function map_lease_row_to_array(object $row): array
+	{
+		return [
+			'id' => (int)$row->id,
+			'product_id' => (int)$row->product_id,
+			'variation_id' => $row->variation_id !== null ? (int)$row->variation_id : null,
+			'order_id' => $row->order_id !== null ? (int)$row->order_id : null,
+			'order_item_id' => $row->order_item_id !== null ? (int)$row->order_item_id : null,
+			'customer_id' => (int)$row->customer_id,
+			'request_id' => $row->request_id !== null ? (int)$row->request_id : null,
+			'start_date' => (string)$row->start_date,
+			'end_date' => (string)$row->end_date,
+			'qty' => (int)$row->qty,
+			'meta' => $this->decode_meta($row->meta ?? null),
+			'status' => (string)$row->status,
+			'created_at' => (string)$row->created_at,
+			'updated_at' => $row->updated_at !== null ? (string)$row->updated_at : null,
+		];
 	}
 }
 
