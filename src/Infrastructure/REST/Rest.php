@@ -8,6 +8,8 @@ use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_REST_Server;
+use WRC\Domain\LeaseRequest;
+use WRC\Domain\Lease;
 
 final class Rest
 {
@@ -147,22 +149,37 @@ final class Rest
 		$startDate = (string)$payload['start_date'];
 		$endDate = (string)$payload['end_date'];
 		$qty = max(1, (int)$payload['qty']);
-		$notes = isset($payload['notes']) ? sanitize_text_field((string)$payload['notes']) : '';
+		$notes = isset($payload['notes']) ? sanitize_text_field((string)$payload['notes']) : null;
 		$meta = isset($payload['meta']) && is_array($payload['meta']) ? $payload['meta'] : [];
+		$requesterId = get_current_user_id();
 
-		if (!$this->is_valid_date($startDate) || !$this->is_valid_date($endDate)) {
-			return new WP_Error('wrc_invalid_date', 'Invalid date format. Use YYYY-MM-DD.', ['status' => 400]);
+		try {
+			$entity = new LeaseRequest(
+				null,
+				$productId,
+				$variationId ?: null,
+				$requesterId,
+				$startDate,
+				$endDate,
+				$qty,
+				LeaseRequest::STATUS_PENDING,
+				$notes,
+				$meta
+			);
+		} catch (\InvalidArgumentException $e) {
+			return new WP_Error('wrc_invalid_input', $e->getMessage(), ['status' => 400]);
 		}
 
 		$response = [
 			'id' => 0,
-			'product_id' => $productId,
-			'variation_id' => $variationId,
-			'qty' => $qty,
-			'start_date' => $startDate,
-			'end_date' => $endDate,
-			'notes' => $notes,
-			'meta' => $meta,
+			'product_id' => $entity->getProductId(),
+			'variation_id' => $entity->getVariationId(),
+			'qty' => $entity->getQuantity(),
+			'start_date' => $entity->getStartDate()->format('Y-m-d'),
+			'end_date' => $entity->getEndDate()->format('Y-m-d'),
+			'notes' => $entity->getNotes(),
+			'meta' => $entity->getMeta(),
+			'status' => $entity->getStatus(),
 			'message' => 'Lease request created (stub)'
 		];
 
@@ -238,20 +255,36 @@ final class Rest
 		$qty = max(1, (int)$payload['qty']);
 		$meta = isset($payload['meta']) && is_array($payload['meta']) ? $payload['meta'] : [];
 
-		if (!$this->is_valid_date($startDate) || !$this->is_valid_date($endDate)) {
-			return new WP_Error('wrc_invalid_date', 'Invalid date format. Use YYYY-MM-DD.', ['status' => 400]);
+		try {
+			$entity = new Lease(
+				null,
+				$productId,
+				$variationId ?: null,
+				null,
+				null,
+				$customerId,
+				$requestId ?: null,
+				$startDate,
+				$endDate,
+				$qty,
+				Lease::STATUS_ACTIVE,
+				$meta
+			);
+		} catch (\InvalidArgumentException $e) {
+			return new WP_Error('wrc_invalid_input', $e->getMessage(), ['status' => 400]);
 		}
 
 		$response = [
 			'id' => 0,
-			'product_id' => $productId,
-			'variation_id' => $variationId,
-			'customer_id' => $customerId,
-			'request_id' => $requestId,
-			'qty' => $qty,
-			'start_date' => $startDate,
-			'end_date' => $endDate,
-			'meta' => $meta,
+			'product_id' => $entity->getProductId(),
+			'variation_id' => $entity->getVariationId(),
+			'customer_id' => $entity->getCustomerId(),
+			'request_id' => $entity->getRequestId(),
+			'qty' => $entity->getQuantity(),
+			'start_date' => $entity->getStartDate()->format('Y-m-d'),
+			'end_date' => $entity->getEndDate()->format('Y-m-d'),
+			'meta' => $entity->getMeta(),
+			'status' => $entity->getStatus(),
 			'message' => 'Lease created (stub)'
 		];
 
