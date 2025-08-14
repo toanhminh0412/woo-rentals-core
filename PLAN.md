@@ -74,11 +74,11 @@
 
 ## 3️⃣ Capabilities & Roles
 
-* [ ] Capabilities:
+* [x] Capabilities:
 
   * `manage_wrc_requests`
   * `manage_wrc_leases`
-* [ ] On activation: grant both to `administrator` and `shop_manager`.
+* [x] On activation: grant both to `administrator`, `shop_manager` and `wcfm_vendor`.
 
 ---
 

@@ -25,6 +25,25 @@ final class Installer
 			self::create_leases_table();
 			update_option('wrc_db_version', self::SCHEMA_VERSION);
 		}
+
+		// Always ensure capabilities are granted on activation
+		self::grant_capabilities();
+	}
+
+	private static function grant_capabilities(): void
+	{
+		$rolesToGrant = ['administrator', 'shop_manager', 'wcfm_vendor'];
+		$capabilities = ['manage_wrc_requests', 'manage_wrc_leases'];
+
+		foreach ($rolesToGrant as $roleName) {
+			$role = get_role($roleName);
+			if (!$role) {
+				continue;
+			}
+			foreach ($capabilities as $capability) {
+				$role->add_cap($capability);
+			}
+		}
 	}
 
 	private static function create_lease_requests_table(): void
