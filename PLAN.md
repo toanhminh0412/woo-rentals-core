@@ -26,7 +26,7 @@
 
 ## 2️⃣ Database & Migrations
 
-* [ ] **Table** `wrc_lease_requests`
+* [x] **Table** `wrc_lease_requests`
   Columns:
 
   ```
