@@ -45,7 +45,7 @@
 
   Indexes: `(product_id)`, `(requester_id)`, `(status)`, `(start_date, end_date)`
 
-* [ ] **Table** `wrc_leases`
+* [x] **Table** `wrc_leases`
   Columns:
 
   ```
