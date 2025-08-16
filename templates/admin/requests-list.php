@@ -52,11 +52,23 @@ class WRC_Lease_Requests_List_Table extends WP_List_Table
 					'id' => (int)$item['id']
 				], admin_url('admin.php'));
 				
+				$delete_url = add_query_arg([
+					'page' => 'wrc_rentals_requests',
+					'action' => 'delete',
+					'id' => (int)$item['id'],
+					'_wpnonce' => wp_create_nonce('delete_request_' . (int)$item['id'])
+				], admin_url('admin.php'));
+
 				$actions = [
 					'view' => sprintf('<a href="%s">%s</a>', esc_url($view_url), esc_html__('View', 'woo-rentals-core')),
 					'approve' => sprintf('<a href="#" data-action="approve" data-id="%d">%s</a>', (int)$item['id'], esc_html__('Approve', 'woo-rentals-core')),
 					'decline' => sprintf('<a href="#" data-action="decline" data-id="%d">%s</a>', (int)$item['id'], esc_html__('Decline', 'woo-rentals-core')),
 					'cancel' => sprintf('<a href="#" data-action="cancel" data-id="%d">%s</a>', (int)$item['id'], esc_html__('Cancel', 'woo-rentals-core')),
+					'delete' => sprintf('<a href="%s" onclick="return confirm(\'%s\');" style="color: #a00;">%s</a>', 
+						esc_url($delete_url), 
+						esc_js(__('Are you sure you want to delete this request? This action cannot be undone.', 'woo-rentals-core')), 
+						esc_html__('Delete', 'woo-rentals-core')
+					),
 				];
 				return sprintf('%d %s', (int)$item['id'], $this->row_actions($actions));
 			case 'product':
@@ -140,6 +152,19 @@ $list_table->prepare_items();
 ?>
 <div class="wrap">
 	<h1><?php esc_html_e('Lease Requests', 'woo-rentals-core'); ?></h1>
+	
+	<?php if (isset($_GET['deleted']) && $_GET['deleted'] === '1'): ?>
+		<div class="notice notice-success is-dismissible">
+			<p><?php esc_html_e('Request deleted successfully.', 'woo-rentals-core'); ?></p>
+		</div>
+	<?php endif; ?>
+	
+	<?php if (isset($_GET['delete_error']) && $_GET['delete_error'] === '1'): ?>
+		<div class="notice notice-error is-dismissible">
+			<p><?php esc_html_e('Error deleting request. Please try again.', 'woo-rentals-core'); ?></p>
+		</div>
+	<?php endif; ?>
+	
 	<form method="get">
 		<input type="hidden" name="page" value="wrc_rentals_requests" />
 		<?php $list_table->display(); ?>

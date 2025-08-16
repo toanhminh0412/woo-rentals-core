@@ -342,6 +342,40 @@ final class LeaseRequest
 		}
 	}
 
+	public static function deleteById(int $id): bool
+	{
+		global $wpdb;
+		
+		do_action('qm/debug', 'Deleting lease request {id}', ['id' => $id]);
+		
+		// Check if the record exists first
+		$exists = self::findByIdArray($id);
+		if (!$exists) {
+			do_action('qm/warning', 'Attempted to delete non-existent lease request {id}', ['id' => $id]);
+			return false;
+		}
+		
+		$result = $wpdb->delete(
+			self::tableName(),
+			['id' => $id],
+			['%d']
+		);
+		
+		if ($result === false) {
+			do_action('qm/error', 'Failed to delete lease request {id}: {wpdb_error}', [
+				'id' => $id,
+				'wpdb_error' => $wpdb->last_error,
+			]);
+			return false;
+		} else {
+			do_action('qm/info', 'Lease request {id} deleted ({rows_affected} rows affected)', [
+				'id' => $id,
+				'rows_affected' => $result,
+			]);
+			return $result > 0;
+		}
+	}
+
 	/** Convert database datetime format to ISO format for API output */
 	private static function formatDateTimeForOutput(string $dbDateTime): string
 	{
