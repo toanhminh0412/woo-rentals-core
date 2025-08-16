@@ -91,6 +91,10 @@ final class Lease
 	private static function assertPositiveInt(int $value, string $fieldName): int
 	{
 		if ($value <= 0) {
+			do_action('qm/warning', 'Validation failed: {field} must be positive (got {value})', [
+				'field' => $fieldName,
+				'value' => $value,
+			]);
 			throw new \InvalidArgumentException(sprintf('%s must be a positive integer', $fieldName));
 		}
 		return $value;
@@ -107,6 +111,10 @@ final class Lease
 	private static function assertAllowedStatus(string $status): string
 	{
 		if (!in_array($status, self::$allowedStatuses, true)) {
+			do_action('qm/warning', 'Invalid lease status: {provided_status}. Allowed statuses: {allowed_statuses}', [
+				'provided_status' => $status,
+				'allowed_statuses' => self::$allowedStatuses,
+			]);
 			throw new \InvalidArgumentException('Invalid status');
 		}
 		return $status;
@@ -116,6 +124,11 @@ final class Lease
 	{
 		$dt = \DateTimeImmutable::createFromFormat('!Y-m-d', $date, $tz);
 		if ($dt === false || $dt->format('Y-m-d') !== $date) {
+			do_action('qm/warning', 'Invalid date format for {field}: {provided_date} (expected {expected_format})', [
+				'field' => $fieldName,
+				'provided_date' => $date,
+				'expected_format' => 'YYYY-MM-DD',
+			]);
 			throw new \InvalidArgumentException(sprintf('%s must be in YYYY-MM-DD format', $fieldName));
 		}
 		return $dt;
@@ -124,6 +137,10 @@ final class Lease
 	private static function assertStartBeforeOrEqualEnd(\DateTimeImmutable $start, \DateTimeImmutable $end): void
 	{
 		if ($start > $end) {
+			do_action('qm/warning', 'Date range validation failed: {start_date} is after {end_date}', [
+				'start_date' => $start->format('Y-m-d'),
+				'end_date' => $end->format('Y-m-d'),
+			]);
 			throw new \InvalidArgumentException('start_date must be before or equal to end_date');
 		}
 	}
@@ -175,6 +192,20 @@ final class Lease
 	public static function create(Lease $lease): int
 	{
 		global $wpdb;
+		
+		// Start timing the database operation
+		do_action('qm/start', 'wrc_lease_create');
+		
+		do_action('qm/debug', 'Creating new lease for product {product_id} with {quantity} units and {status} status for customer {customer_id} ({start_date} to {end_date})', [
+			'product_id' => $lease->getProductId(),
+			'customer_id' => $lease->getCustomerId(),
+			'start_date' => $lease->getStartDate()->format('Y-m-d'),
+			'end_date' => $lease->getEndDate()->format('Y-m-d'),
+			'quantity' => $lease->getQuantity(),
+			'status' => $lease->getStatus(),
+			'request_id' => $lease->getRequestId(),
+		]);
+		
 		$nowUtc = gmdate('Y-m-d H:i:s');
 		$inserted = $wpdb->insert(
 			self::tableName(),
@@ -194,10 +225,21 @@ final class Lease
 			],
 			['%d','%d','%d','%d','%d','%d','%s','%s','%d','%s','%s','%s']
 		);
+
 		if ($inserted === false) {
+			do_action('qm/error', 'Failed to insert lease: {wpdb_error}. Query: {wpdb_query}', [
+				'wpdb_error' => $wpdb->last_error,
+				'wpdb_query' => $wpdb->last_query,
+			]);
+			do_action('qm/stop', 'wrc_lease_create');
 			throw new \RuntimeException('Failed to insert lease');
 		}
-		return (int)$wpdb->insert_id;
+		
+		$newId = (int)$wpdb->insert_id;
+		do_action('qm/info', 'Lease created successfully with ID {id}', ['id' => $newId]);
+		do_action('qm/stop', 'wrc_lease_create');
+		
+		return $newId;
 	}
 
 	/** @return array<string,mixed>|null */
@@ -216,6 +258,10 @@ final class Lease
 	public static function listAsArray(array $filters): array
 	{
 		global $wpdb;
+		
+		do_action('qm/start', 'wrc_lease_list');
+		do_action('qm/debug', 'Listing leases with filters: {filters}', ['filters' => $filters]);
+		
 		$where = [];
 		$args = [];
 		if (!empty($filters['status'])) {
@@ -236,19 +282,45 @@ final class Lease
 		$rows = $args
 			? $wpdb->get_results($wpdb->prepare($sql, $args))
 			: $wpdb->get_results($sql);
-		return array_map([self::class, 'mapRowToArray'], $rows ?: []);
+		
+		$items = array_map([self::class, 'mapRowToArray'], $rows ?: []);
+		
+		do_action('qm/info', 'Retrieved {items_returned} leases', ['items_returned' => count($items)]);
+		do_action('qm/stop', 'wrc_lease_list');
+		
+		return $items;
 	}
 
 	public static function updateStatus(int $id, string $status): void
 	{
 		global $wpdb;
-		$wpdb->update(
+		
+		do_action('qm/debug', 'Updating lease {id} status to {new_status}', [
+			'id' => $id,
+			'new_status' => $status,
+		]);
+		
+		$result = $wpdb->update(
 			self::tableName(),
 			['status' => $status, 'updated_at' => gmdate('Y-m-d H:i:s')],
 			['id' => $id],
 			['%s','%s'],
 			['%d']
 		);
+		
+		if ($result === false) {
+			do_action('qm/error', 'Failed to update lease {id} status to {status}: {wpdb_error}', [
+				'id' => $id,
+				'status' => $status,
+				'wpdb_error' => $wpdb->last_error,
+			]);
+		} else {
+			do_action('qm/info', 'Lease {id} status updated to {status} ({rows_affected} rows affected)', [
+				'id' => $id,
+				'status' => $status,
+				'rows_affected' => $result,
+			]);
+		}
 	}
 
 	/** @return array<string,mixed> */
