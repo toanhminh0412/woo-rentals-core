@@ -52,7 +52,13 @@ final class Admin
 		if (!\current_user_can('manage_wrc_requests')) {
 			\wp_die(\__('You do not have permission to view this page.', 'woo-rentals-core'));
 		}
-		\wrc_render_template('admin/requests-list.php');
+		
+		// Check if we're viewing a specific request detail
+		if (isset($_GET['action']) && $_GET['action'] === 'view' && isset($_GET['id'])) {
+			\wrc_render_template('admin/request-detail.php');
+		} else {
+			\wrc_render_template('admin/requests-list.php');
+		}
 	}
 
 	public function render_leases_list(): void
