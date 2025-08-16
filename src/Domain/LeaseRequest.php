@@ -113,16 +113,25 @@ final class LeaseRequest
 		return $status;
 	}
 
-	private static function assertDateYmd(string $date, string $fieldName, \DateTimeZone $tz): \DateTimeImmutable
+	private static function assertDateYmd(string $datetime, string $fieldName, \DateTimeZone $tz): \DateTimeImmutable
 	{
-		$dt = \DateTimeImmutable::createFromFormat('!Y-m-d', $date, $tz);
-		if ($dt === false || $dt->format('Y-m-d') !== $date) {
-			do_action('qm/warning', 'Invalid date format for {field}: {provided_date} (expected {expected_format})', [
-				'field' => $fieldName,
-				'provided_date' => $date,
-				'expected_format' => 'YYYY-MM-DD',
-			]);
-			throw new \InvalidArgumentException(sprintf('%s must be in YYYY-MM-DD format', $fieldName));
+		// Try ISO 8601 datetime format first (Y-m-d\TH:i), then fall back to other formats
+		$dt = \DateTimeImmutable::createFromFormat('Y-m-d\TH:i', $datetime, $tz);
+		if ($dt === false || $dt->format('Y-m-d\TH:i') !== $datetime) {
+			// Try legacy datetime format (Y-m-d H:i:s)
+			$dt = \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $datetime, $tz);
+			if ($dt === false || $dt->format('Y-m-d H:i:s') !== $datetime) {
+				// Try date-only format with time set to 00:00:00
+				$dt = \DateTimeImmutable::createFromFormat('!Y-m-d', $datetime, $tz);
+				if ($dt === false || $dt->format('Y-m-d') !== $datetime) {
+					do_action('qm/warning', 'Invalid datetime format for {field}: {provided_datetime} (expected {expected_format})', [
+						'field' => $fieldName,
+						'provided_datetime' => $datetime,
+						'expected_format' => 'YYYY-MM-DDTHH:MM, YYYY-MM-DD HH:MM:SS, or YYYY-MM-DD',
+					]);
+					throw new \InvalidArgumentException(sprintf('%s must be in YYYY-MM-DDTHH:MM, YYYY-MM-DD HH:MM:SS, or YYYY-MM-DD format', $fieldName));
+				}
+			}
 		}
 		return $dt;
 	}
@@ -131,8 +140,8 @@ final class LeaseRequest
 	{
 		if ($start > $end) {
 			do_action('qm/warning', 'Date range validation failed: {start_date} is after {end_date}', [
-				'start_date' => $start->format('Y-m-d'),
-				'end_date' => $end->format('Y-m-d'),
+				'start_date' => $start->format('Y-m-d\TH:i'),
+				'end_date' => $end->format('Y-m-d\TH:i'),
 			]);
 			throw new \InvalidArgumentException('start_date must be before or equal to end_date');
 		}
@@ -193,8 +202,8 @@ final class LeaseRequest
 		do_action('qm/debug', 'Creating new lease request for product {product_id} with {quantity} units and {status} status by user {requester_id} ({start_date} to {end_date})', [
 			'product_id' => $request->getProductId(),
 			'requester_id' => $request->getRequesterId(),
-			'start_date' => $request->getStartDate()->format('Y-m-d'),
-			'end_date' => $request->getEndDate()->format('Y-m-d'),
+			'start_date' => $request->getStartDate()->format('Y-m-d\TH:i'),
+			'end_date' => $request->getEndDate()->format('Y-m-d\TH:i'),
 			'quantity' => $request->getQuantity(),
 			'status' => $request->getStatus(),
 		]);
@@ -206,8 +215,8 @@ final class LeaseRequest
 				'product_id' => $request->getProductId(),
 				'variation_id' => $request->getVariationId(),
 				'requester_id' => $request->getRequesterId(),
-				'start_date' => $request->getStartDate()->format('Y-m-d'),
-				'end_date' => $request->getEndDate()->format('Y-m-d'),
+				'start_date' => $request->getStartDate()->format('Y-m-d H:i:s'),
+				'end_date' => $request->getEndDate()->format('Y-m-d H:i:s'),
 				'qty' => $request->getQuantity(),
 				'notes' => $request->getNotes(),
 				'meta' => self::encodeMeta($request->getMeta()),
@@ -333,6 +342,14 @@ final class LeaseRequest
 		}
 	}
 
+	/** Convert database datetime format to ISO format for API output */
+	private static function formatDateTimeForOutput(string $dbDateTime): string
+	{
+		// Convert from database format (Y-m-d H:i:s) to ISO format (Y-m-d\TH:i)
+		$dt = \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $dbDateTime, new \DateTimeZone('UTC'));
+		return $dt ? $dt->format('Y-m-d\TH:i') : $dbDateTime;
+	}
+
 	/** @return array<string,mixed> */
 	public static function mapRowToArray(object $row): array
 	{
@@ -341,8 +358,8 @@ final class LeaseRequest
 			'product_id' => (int)$row->product_id,
 			'variation_id' => $row->variation_id !== null ? (int)$row->variation_id : null,
 			'requester_id' => (int)$row->requester_id,
-			'start_date' => (string)$row->start_date,
-			'end_date' => (string)$row->end_date,
+			'start_date' => self::formatDateTimeForOutput((string)$row->start_date),
+			'end_date' => self::formatDateTimeForOutput((string)$row->end_date),
 			'qty' => (int)$row->qty,
 			'notes' => $row->notes !== null ? (string)$row->notes : null,
 			'meta' => self::decodeMeta($row->meta ?? null),

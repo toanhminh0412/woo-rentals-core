@@ -6,7 +6,7 @@ namespace WRC\Infrastructure;
 
 final class Installer
 {
-	private const SCHEMA_VERSION = '1';
+	private const SCHEMA_VERSION = '2';
 	public function boot(): void
 	{
 		// Placeholder for any runtime setup needed later
@@ -60,8 +60,8 @@ final class Installer
 			product_id bigint(20) unsigned NOT NULL,
 			variation_id bigint(20) unsigned DEFAULT NULL,
 			requester_id bigint(20) unsigned NOT NULL,
-			start_date date NOT NULL,
-			end_date date NOT NULL,
+			start_date datetime NOT NULL,
+			end_date datetime NOT NULL,
 			qty int(11) NOT NULL DEFAULT 1,
 			notes text NULL,
 			meta longtext NULL,
@@ -95,8 +95,8 @@ final class Installer
 			order_item_id bigint(20) unsigned DEFAULT NULL,
 			customer_id bigint(20) unsigned NOT NULL,
 			request_id bigint(20) unsigned DEFAULT NULL,
-			start_date date NOT NULL,
-			end_date date NOT NULL,
+			start_date datetime NOT NULL,
+			end_date datetime NOT NULL,
 			qty int(11) NOT NULL DEFAULT 1,
 			meta longtext NULL,
 			status ENUM('active','completed','cancelled') NOT NULL DEFAULT 'active',

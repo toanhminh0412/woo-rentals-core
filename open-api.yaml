@@ -30,8 +30,8 @@ components:
         product_id: { type: integer }
         variation_id: { type: integer, nullable: true }
         requester_id: { type: integer }
-        start_date: { type: string, format: date }
-        end_date: { type: string, format: date }
+        start_date: { type: string, format: date-time, example: "2025-08-16T08:00" }
+        end_date: { type: string, format: date-time, example: "2025-08-20T17:00" }
         qty: { type: integer, minimum: 1 }
         notes: { type: string, nullable: true }
         meta:
@@ -48,8 +48,8 @@ components:
       properties:
         product_id: { type: integer }
         variation_id: { type: integer, nullable: true }
-        start_date: { type: string, format: date }
-        end_date: { type: string, format: date }
+        start_date: { type: string, format: date-time, example: "2025-08-16T08:00" }
+        end_date: { type: string, format: date-time, example: "2025-08-20T17:00" }
         qty: { type: integer, minimum: 1 }
         notes: { type: string }
         meta:
@@ -84,8 +84,8 @@ components:
         order_item_id: { type: integer, nullable: true }
         customer_id: { type: integer }
         request_id: { type: integer, nullable: true }
-        start_date: { type: string, format: date }
-        end_date: { type: string, format: date }
+        start_date: { type: string, format: date-time, example: "2025-08-16T08:00" }
+        end_date: { type: string, format: date-time, example: "2025-08-20T17:00" }
         qty: { type: integer, minimum: 1 }
         meta:
           type: object
@@ -103,8 +103,8 @@ components:
         variation_id: { type: integer, nullable: true }
         customer_id: { type: integer }
         request_id: { type: integer, nullable: true }
-        start_date: { type: string, format: date }
-        end_date: { type: string, format: date }
+        start_date: { type: string, format: date-time, example: "2025-08-16T08:00" }
+        end_date: { type: string, format: date-time, example: "2025-08-20T17:00" }
         qty: { type: integer, minimum: 1 }
         meta:
           type: object

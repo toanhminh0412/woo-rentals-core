@@ -408,10 +408,23 @@ final class Rest
 	}
 
 	// Utilities
-	private function is_valid_date(string $date): bool
+	private function is_valid_date(string $datetime): bool
 	{
-		$dt = \DateTime::createFromFormat('Y-m-d', $date);
-		return $dt !== false && $dt->format('Y-m-d') === $date;
+		// Try ISO 8601 datetime format first (Y-m-d\TH:i)
+		$dt = \DateTime::createFromFormat('Y-m-d\TH:i', $datetime);
+		if ($dt !== false && $dt->format('Y-m-d\TH:i') === $datetime) {
+			return true;
+		}
+		
+		// Try legacy datetime format (Y-m-d H:i:s)
+		$dt = \DateTime::createFromFormat('Y-m-d H:i:s', $datetime);
+		if ($dt !== false && $dt->format('Y-m-d H:i:s') === $datetime) {
+			return true;
+		}
+		
+		// Try date-only format
+		$dt = \DateTime::createFromFormat('Y-m-d', $datetime);
+		return $dt !== false && $dt->format('Y-m-d') === $datetime;
 	}
 }
 
