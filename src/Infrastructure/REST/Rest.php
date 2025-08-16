@@ -144,7 +144,7 @@ final class Rest
 		]);
 		
 		$payload = (array)$request->get_json_params();
-		$required = ['product_id', 'start_date', 'end_date', 'qty'];
+		$required = ['product_id', 'start_date', 'end_date', 'qty', 'requester_id'];
 		foreach ($required as $fieldName) {
 			if (!array_key_exists($fieldName, $payload)) {
 				do_action('qm/warning', 'REST API validation failed: missing required field {missing_field}. Provided fields: {provided_fields}', [
@@ -162,7 +162,7 @@ final class Rest
 		$qty = max(1, (int)$payload['qty']);
 		$notes = isset($payload['notes']) ? sanitize_text_field((string)$payload['notes']) : null;
 		$meta = isset($payload['meta']) && is_array($payload['meta']) ? $payload['meta'] : [];
-		$requesterId = get_current_user_id();
+		$requesterId = absint($payload['requester_id']);
 
 		try {
 			$entity = new LeaseRequest(
@@ -204,7 +204,7 @@ final class Rest
 	{
 		$status = (string)$request->get_param('status');
 		$productId = absint((string)$request->get_param('product_id'));
-		$requesterId = null;
+		$requesterId = absint((string)$request->get_param('requester_id'));
 		$mine = filter_var((string)$request->get_param('mine'), FILTER_VALIDATE_BOOLEAN);
 		if ($mine) {
 			$requesterId = get_current_user_id();
