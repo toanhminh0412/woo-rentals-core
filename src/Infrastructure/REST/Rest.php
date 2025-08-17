@@ -47,9 +47,21 @@ final class Rest
 			[
 				'args' => [ 'id' => [ 'validate_callback' => static function ($param): bool { return is_numeric($param) && (int)$param > 0; } ] ],
 				'events' => 'status update',
-				'methods' => WP_REST_Server::EDITABLE,
+				'methods' => 'POST',
 				'callback' => [$this, 'update_request_status'],
 				'permission_callback' => [$this, 'permission_update_request_status'],
+			],
+			[
+				'args' => [ 'id' => [ 'validate_callback' => static function ($param): bool { return is_numeric($param) && (int)$param > 0; } ] ],
+				'methods' => 'PUT',
+				'callback' => [$this, 'update_request'],
+				'permission_callback' => [$this, 'permission_update_request'],
+			],
+			[
+				'args' => [ 'id' => [ 'validate_callback' => static function ($param): bool { return is_numeric($param) && (int)$param > 0; } ] ],
+				'methods' => 'PATCH',
+				'callback' => [$this, 'update_request'],
+				'permission_callback' => [$this, 'permission_update_request'],
 			],
 		]);
 
@@ -106,6 +118,11 @@ final class Rest
 	}
 
 	public function permission_update_request_status(WP_REST_Request $request): bool
+	{
+		return current_user_can('manage_wrc_requests');
+	}
+
+	public function permission_update_request(WP_REST_Request $request): bool
 	{
 		return current_user_can('manage_wrc_requests');
 	}
@@ -280,6 +297,74 @@ final class Rest
 			'new_status' => $statusToSet,
 		]);
 		do_action('qm/stop', 'wrc_api_update_request_status');
+		return new WP_REST_Response(LeaseRequest::findByIdArray($id), 200);
+	}
+
+	public function update_request(WP_REST_Request $request): WP_REST_Response|WP_Error
+	{
+		do_action('qm/start', 'wrc_api_update_request');
+		$id = absint($request['id']);
+		$existing = LeaseRequest::findByIdArray($id);
+		if ($existing === null) {
+			do_action('qm/warning', 'REST API: Lease request {id} not found for update', ['id' => $id]);
+			do_action('qm/stop', 'wrc_api_update_request');
+			return new WP_Error('wrc_not_found', 'Lease request not found.', ['status' => 404]);
+		}
+
+		$payload = (array)$request->get_json_params();
+		$allowedKeys = ['start_date','end_date','qty','notes','meta','variation_id'];
+		$toUpdate = [];
+		foreach ($allowedKeys as $key) {
+			if (array_key_exists($key, $payload)) {
+				$toUpdate[$key] = $payload[$key];
+			}
+		}
+		if ($toUpdate === []) {
+			do_action('qm/warning', 'REST API: No updatable fields provided for lease request {id}', ['id' => $id]);
+			do_action('qm/stop', 'wrc_api_update_request');
+			return new WP_Error('wrc_no_fields', 'No updatable fields provided.', ['status' => 400]);
+		}
+
+		// Sanitize/validate basic shapes before domain validation
+		if (isset($toUpdate['qty'])) {
+			$toUpdate['qty'] = max(1, (int)$toUpdate['qty']);
+		}
+		if (isset($toUpdate['notes'])) {
+			$toUpdate['notes'] = sanitize_text_field((string)$toUpdate['notes']);
+		}
+		if (isset($toUpdate['meta'])) {
+			$toUpdate['meta'] = is_array($toUpdate['meta']) ? $toUpdate['meta'] : [];
+		}
+		if (isset($toUpdate['variation_id'])) {
+			$toUpdate['variation_id'] = absint($toUpdate['variation_id']) ?: null;
+		}
+		if (isset($toUpdate['start_date']) && !$this->is_valid_date((string)$toUpdate['start_date'])) {
+			do_action('qm/stop', 'wrc_api_update_request');
+			return new WP_Error('wrc_invalid_input', 'Invalid start_date format.', ['status' => 400]);
+		}
+		if (isset($toUpdate['end_date']) && !$this->is_valid_date((string)$toUpdate['end_date'])) {
+			do_action('qm/stop', 'wrc_api_update_request');
+			return new WP_Error('wrc_invalid_input', 'Invalid end_date format.', ['status' => 400]);
+		}
+
+		try {
+			LeaseRequest::updateFields($id, $toUpdate);
+		} catch (\InvalidArgumentException $e) {
+			do_action('qm/warning', 'REST API: Invalid input for lease request update: {error}', [
+				'error' => $e->getMessage()
+			]);
+			do_action('qm/stop', 'wrc_api_update_request');
+			return new WP_Error('wrc_invalid_input', $e->getMessage(), ['status' => 400]);
+		} catch (\RuntimeException $e) {
+			do_action('qm/error', 'REST API: Database error updating lease request: {error}', [
+				'error' => $e->getMessage(),
+			]);
+			do_action('qm/stop', 'wrc_api_update_request');
+			return new WP_Error('wrc_db_error', 'Failed to update lease request.', ['status' => 500]);
+		}
+
+		do_action('qm/info', 'REST API: Lease request {id} updated', ['id' => $id]);
+		do_action('qm/stop', 'wrc_api_update_request');
 		return new WP_REST_Response(LeaseRequest::findByIdArray($id), 200);
 	}
 

@@ -65,6 +65,17 @@ components:
         total: { type: integer }
         page: { type: integer }
         per_page: { type: integer }
+    LeaseRequestUpdate:
+      type: object
+      properties:
+        start_date: { type: string, format: date-time, example: "2025-08-16T08:00" }
+        end_date: { type: string, format: date-time, example: "2025-08-20T17:00" }
+        qty: { type: integer, minimum: 1 }
+        notes: { type: string, nullable: true }
+        meta:
+          type: object
+          additionalProperties: true
+        variation_id: { type: integer, nullable: true }
     RequestStatusUpdate:
       type: object
       required: [action]
@@ -201,6 +212,24 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/LeaseRequest' }
         '400': { description: Invalid action, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    patch:
+      tags: [Lease Requests]
+      summary: Update a lease request
+      description: Update editable fields of a lease request (dates, quantity, notes, meta, variation).
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LeaseRequestUpdate' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LeaseRequest' }
+        '400': { description: Invalid input, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '404': { description: Not found, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
 
   /wrc/v1/leases:

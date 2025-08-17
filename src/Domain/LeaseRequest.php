@@ -420,6 +420,105 @@ final class LeaseRequest
 		return $dt ? $dt->format('Y-m-d\TH:i') : $dbDateTime;
 	}
 
+	/**
+	 * Update selected fields of a lease request.
+	 *
+	 * @param array{start_date?:string,end_date?:string,qty?:int,notes?:string|null,meta?:array,variation_id?:int|null} $fields
+	 */
+	public static function updateFields(int $id, array $fields): void
+	{
+		global $wpdb;
+
+		$existing = self::findByIdArray($id);
+		if ($existing === null) {
+			throw new \RuntimeException('Lease request not found');
+		}
+
+		$tz = new \DateTimeZone('UTC');
+		$startInput = array_key_exists('start_date', $fields) ? (string)$fields['start_date'] : (string)$existing['start_date'];
+		$endInput = array_key_exists('end_date', $fields) ? (string)$fields['end_date'] : (string)$existing['end_date'];
+		$qtyInput = array_key_exists('qty', $fields) ? (int)$fields['qty'] : (int)$existing['qty'];
+		$notesInput = array_key_exists('notes', $fields) ? ($fields['notes'] !== null ? (string)$fields['notes'] : null) : ($existing['notes'] !== null ? (string)$existing['notes'] : null);
+		$metaInput = array_key_exists('meta', $fields) ? (is_array($fields['meta']) ? $fields['meta'] : []) : (is_array($existing['meta']) ? $existing['meta'] : []);
+		$variationInput = array_key_exists('variation_id', $fields)
+			? ($fields['variation_id'] !== null ? (int)$fields['variation_id'] : null)
+			: ($existing['variation_id'] !== null ? (int)$existing['variation_id'] : null);
+
+		// Validate using domain validators
+		$start = self::assertDateYmd($startInput, 'start_date', $tz);
+		$end = self::assertDateYmd($endInput, 'end_date', $tz);
+		self::assertStartBeforeOrEqualEnd($start, $end);
+		$qty = self::assertMinInt($qtyInput, 1, 'qty');
+		if ($variationInput !== null) {
+			$variationInput = self::assertPositiveInt($variationInput, 'variation_id');
+		}
+		$meta = self::assertJsonEncodableMap($metaInput, 'meta');
+
+		do_action('qm/debug', 'Updating fields for lease request {id}: {fields}', [
+			'id' => $id,
+			'fields' => array_keys($fields),
+		]);
+
+		$data = [
+			'start_date' => $start->format('Y-m-d H:i:s'),
+			'end_date' => $end->format('Y-m-d H:i:s'),
+			'qty' => $qty,
+			'notes' => $notesInput,
+			'meta' => self::encodeMeta($meta),
+			// Only include variation_id if provided explicitly; null unsets
+			'variation_id' => $variationInput,
+			'updated_at' => gmdate('Y-m-d H:i:s'),
+		];
+
+		// Only update columns that were actually provided, plus updated_at
+		$providedCols = [];
+		$formats = [];
+		$map = [
+			'start_date' => '%s',
+			'end_date' => '%s',
+			'qty' => '%d',
+			'notes' => '%s',
+			'meta' => '%s',
+			'variation_id' => '%d',
+			'updated_at' => '%s',
+		];
+		foreach (['start_date','end_date','qty','notes','meta','variation_id'] as $col) {
+			if (!array_key_exists($col, $fields)) {
+				continue;
+			}
+			// Skip updating variation_id when explicitly set to null to avoid forcing 0
+			if ($col === 'variation_id' && $fields['variation_id'] === null) {
+				continue;
+			}
+			$providedCols[$col] = $data[$col];
+			$formats[] = $map[$col];
+		}
+		// Always include updated_at
+		$providedCols['updated_at'] = $data['updated_at'];
+		$formats[] = '%s';
+
+		$result = $wpdb->update(
+			self::tableName(),
+			$providedCols,
+			['id' => $id],
+			$formats,
+			['%d']
+		);
+
+		if ($result === false) {
+			do_action('qm/error', 'Failed to update lease request {id}: {wpdb_error}', [
+				'id' => $id,
+				'wpdb_error' => $wpdb->last_error,
+			]);
+			throw new \RuntimeException('Failed to update lease request');
+		}
+
+		do_action('qm/info', 'Lease request {id} updated ({rows_affected} rows affected)', [
+			'id' => $id,
+			'rows_affected' => $result,
+		]);
+	}
+
 	/** @return array<string,mixed> */
 	public static function mapRowToArray(object $row): array
 	{
