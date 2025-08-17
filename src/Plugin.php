@@ -6,6 +6,7 @@ namespace WRC;
 
 use WRC\Application\Admin\Admin;
 use WRC\Infrastructure\Installer;
+use WRC\Infrastructure\ProductHooks;
 use WRC\Infrastructure\REST\Rest;
 
 final class Plugin
@@ -31,6 +32,7 @@ final class Plugin
 		(new Admin())->boot();
 		(new Rest())->boot();
 		(new Installer())->boot();
+		(new ProductHooks())->boot();
 	}
 }
 

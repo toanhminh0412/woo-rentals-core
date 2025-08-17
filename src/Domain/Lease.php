@@ -332,6 +332,76 @@ final class Lease
 		}
 	}
 
+	public static function deleteById(int $id): bool
+	{
+		global $wpdb;
+		
+		do_action('qm/debug', 'Deleting lease {id}', ['id' => $id]);
+		
+		// Check if the record exists first
+		$exists = self::findByIdArray($id);
+		if (!$exists) {
+			do_action('qm/warning', 'Attempted to delete non-existent lease {id}', ['id' => $id]);
+			return false;
+		}
+		
+		$result = $wpdb->delete(
+			self::tableName(),
+			['id' => $id],
+			['%d']
+		);
+		
+		if ($result === false) {
+			do_action('qm/error', 'Failed to delete lease {id}: {wpdb_error}', [
+				'id' => $id,
+				'wpdb_error' => $wpdb->last_error,
+			]);
+			return false;
+		} else {
+			do_action('qm/info', 'Lease {id} deleted ({rows_affected} rows affected)', [
+				'id' => $id,
+				'rows_affected' => $result,
+			]);
+			return $result > 0;
+		}
+	}
+
+	public static function deleteByProductId(int $productId): int
+	{
+		global $wpdb;
+		
+		do_action('qm/debug', 'Deleting all leases for product {product_id}', ['product_id' => $productId]);
+		
+		// Get count before deletion for logging
+		$countSql = 'SELECT COUNT(*) FROM ' . self::tableName() . ' WHERE product_id = %d';
+		$count = (int)$wpdb->get_var($wpdb->prepare($countSql, [$productId]));
+		
+		if ($count === 0) {
+			do_action('qm/info', 'No leases found for product {product_id}', ['product_id' => $productId]);
+			return 0;
+		}
+		
+		$result = $wpdb->delete(
+			self::tableName(),
+			['product_id' => $productId],
+			['%d']
+		);
+		
+		if ($result === false) {
+			do_action('qm/error', 'Failed to delete leases for product {product_id}: {wpdb_error}', [
+				'product_id' => $productId,
+				'wpdb_error' => $wpdb->last_error,
+			]);
+			return 0;
+		} else {
+			do_action('qm/info', 'Deleted {rows_affected} leases for product {product_id}', [
+				'product_id' => $productId,
+				'rows_affected' => $result,
+			]);
+			return (int)$result;
+		}
+	}
+
 	/** Convert database datetime format to ISO format for API output */
 	private static function formatDateTimeForOutput(string $dbDateTime): string
 	{

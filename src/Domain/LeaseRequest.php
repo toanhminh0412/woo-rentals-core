@@ -376,6 +376,42 @@ final class LeaseRequest
 		}
 	}
 
+	public static function deleteByProductId(int $productId): int
+	{
+		global $wpdb;
+		
+		do_action('qm/debug', 'Deleting all lease requests for product {product_id}', ['product_id' => $productId]);
+		
+		// Get count before deletion for logging
+		$countSql = 'SELECT COUNT(*) FROM ' . self::tableName() . ' WHERE product_id = %d';
+		$count = (int)$wpdb->get_var($wpdb->prepare($countSql, [$productId]));
+		
+		if ($count === 0) {
+			do_action('qm/info', 'No lease requests found for product {product_id}', ['product_id' => $productId]);
+			return 0;
+		}
+		
+		$result = $wpdb->delete(
+			self::tableName(),
+			['product_id' => $productId],
+			['%d']
+		);
+		
+		if ($result === false) {
+			do_action('qm/error', 'Failed to delete lease requests for product {product_id}: {wpdb_error}', [
+				'product_id' => $productId,
+				'wpdb_error' => $wpdb->last_error,
+			]);
+			return 0;
+		} else {
+			do_action('qm/info', 'Deleted {rows_affected} lease requests for product {product_id}', [
+				'product_id' => $productId,
+				'rows_affected' => $result,
+			]);
+			return (int)$result;
+		}
+	}
+
 	/** Convert database datetime format to ISO format for API output */
 	private static function formatDateTimeForOutput(string $dbDateTime): string
 	{
