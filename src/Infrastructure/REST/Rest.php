@@ -192,8 +192,10 @@ final class Rest
 				$startDate,
 				$endDate,
 				$qty,
-				LeaseRequest::STATUS_PENDING,
+				LeaseRequest::STATUS_AWAITING_LESSOR_RESPONSE,
 				$notes,
+				$totalPrice,
+				$requestingVendorId,
 				$meta
 			);
 		} catch (\InvalidArgumentException $e) {
@@ -258,23 +260,29 @@ final class Rest
 		
 		$id = absint($request['id']);
 		$payload = (array)$request->get_json_params();
-		$action = isset($payload['action']) ? (string)$payload['action'] : '';
-		$note = isset($payload['note']) ? sanitize_text_field((string)$payload['note']) : '';
+		$status = isset($payload['status']) ? (string)$payload['status'] : '';
 		
-		do_action('qm/debug', 'REST API: Updating lease request {id} status via {action} by user {user_id}', [
+		do_action('qm/debug', 'REST API: Updating lease request {id} status to {status} by user {user_id}', [
 			'id' => $id,
-			'action' => $action,
+			'status' => $status,
 			'user_id' => get_current_user_id(),
 		]);
 		
-		$allowed = ['approve', 'decline', 'cancel'];
-		if (!in_array($action, $allowed, true)) {
-			do_action('qm/warning', 'REST API: Invalid action {action} for request status update. Allowed actions: {allowed_actions}', [
-				'action' => $action,
-				'allowed_actions' => $allowed,
+		$allowedStatuses = [
+			LeaseRequest::STATUS_AWAITING_LESSEE_RESPONSE,
+			LeaseRequest::STATUS_AWAITING_LESSOR_RESPONSE,
+			LeaseRequest::STATUS_AWAITING_PAYMENT,
+			LeaseRequest::STATUS_ACCEPTED,
+			LeaseRequest::STATUS_DECLINED,
+			LeaseRequest::STATUS_CANCELLED,
+		];
+		if (!in_array($status, $allowedStatuses, true)) {
+			do_action('qm/warning', 'REST API: Invalid status {status} for request status update. Allowed statuses: {allowed_statuses}', [
+				'status' => $status,
+				'allowed_statuses' => $allowedStatuses,
 			]);
 			do_action('qm/stop', 'wrc_api_update_request_status');
-			return new WP_Error('wrc_invalid_action', 'Invalid action.', ['status' => 400]);
+			return new WP_Error('wrc_invalid_status', 'Invalid status.', ['status' => 400]);
 		}
 		$existing = LeaseRequest::findByIdArray($id);
 		if ($existing === null) {
@@ -282,22 +290,12 @@ final class Rest
 			do_action('qm/stop', 'wrc_api_update_request_status');
 			return new WP_Error('wrc_not_found', 'Lease request not found.', ['status' => 404]);
 		}
-		$actionToStatus = [
-			'approve' => LeaseRequest::STATUS_APPROVED,
-			'decline' => LeaseRequest::STATUS_DECLINED,
-			'cancel' => LeaseRequest::STATUS_CANCELLED,
-		];
-		$statusToSet = $actionToStatus[$action] ?? null;
-		if ($statusToSet === null) {
-			do_action('qm/stop', 'wrc_api_update_request_status');
-			return new WP_Error('wrc_invalid_action', 'Invalid action.', ['status' => 400]);
-		}
-		LeaseRequest::updateStatus($id, $statusToSet);
 		
-		do_action('qm/info', 'REST API: Lease request {id} status updated to {new_status} via {action}', [
+		LeaseRequest::updateStatus($id, $status);
+		
+		do_action('qm/info', 'REST API: Lease request {id} status updated to {new_status}', [
 			'id' => $id,
-			'action' => $action,
-			'new_status' => $statusToSet,
+			'new_status' => $status,
 		]);
 		do_action('qm/stop', 'wrc_api_update_request_status');
 		return new WP_REST_Response(LeaseRequest::findByIdArray($id), 200);
@@ -315,7 +313,7 @@ final class Rest
 		}
 
 		$payload = (array)$request->get_json_params();
-		$allowedKeys = ['start_date','end_date','qty','notes','meta','variation_id'];
+		$allowedKeys = ['start_date','end_date','qty','notes','meta','variation_id','total_price','requesting_vendor_id'];
 		$toUpdate = [];
 		foreach ($allowedKeys as $key) {
 			if (array_key_exists($key, $payload)) {
@@ -352,7 +350,9 @@ final class Rest
         if (isset($toUpdate['total_price'])) {
             $toUpdate['total_price'] = absint($toUpdate['total_price']);
         }
-
+        if (isset($toUpdate['requesting_vendor_id'])) {
+            $toUpdate['requesting_vendor_id'] = absint($toUpdate['requesting_vendor_id']);
+        }
 		try {
 			LeaseRequest::updateFields($id, $toUpdate);
 		} catch (\InvalidArgumentException $e) {

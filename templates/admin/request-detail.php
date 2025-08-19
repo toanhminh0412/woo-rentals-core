@@ -16,7 +16,7 @@ $request = $id ? \WRC\Domain\LeaseRequest::findByIdArray($id) : null;
 				<tr><th><?php esc_html_e('ID', 'woo-rentals-core'); ?></th><td><?php echo (int)$request['id']; ?></td></tr>
 				<tr><th><?php esc_html_e('Product', 'woo-rentals-core'); ?></th><td><?php echo (int)$request['product_id']; ?></td></tr>
 				<tr><th><?php esc_html_e('Requester', 'woo-rentals-core'); ?></th><td><?php echo (int)$request['requester_id']; ?></td></tr>
-				<tr><th><?php esc_html_e('Vendor', 'woo-rentals-core'); ?></th><td>
+				<tr><th><?php esc_html_e('Requesting Vendor', 'woo-rentals-core'); ?></th><td>
 					<?php 
 					$vendorId = isset($request['requesting_vendor_id']) ? (int)$request['requesting_vendor_id'] : 0; 
 					$vendor = $vendorId ? get_userdata($vendorId) : false; 

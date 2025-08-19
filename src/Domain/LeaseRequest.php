@@ -471,7 +471,7 @@ final class LeaseRequest
 		}
 		$meta = self::assertJsonEncodableMap($metaInput, 'meta');
 		$totalPriceInput = array_key_exists('total_price', $fields) ? (int)$fields['total_price'] : (int)$existing['total_price'];
-
+        $requestingVendorIdInput = array_key_exists('requesting_vendor_id', $fields) ? (int)$fields['requesting_vendor_id'] : (int)$existing['requesting_vendor_id'];
 		do_action('qm/debug', 'Updating fields for lease request {id}: {fields}', [
 			'id' => $id,
 			'fields' => array_keys($fields),
@@ -486,6 +486,7 @@ final class LeaseRequest
 			// Only include variation_id if provided explicitly; null unsets
 			'variation_id' => $variationInput,
 			'total_price' => $totalPriceInput,
+			'requesting_vendor_id' => $requestingVendorIdInput,
 			'updated_at' => gmdate('Y-m-d H:i:s'),
 		];
 
@@ -500,9 +501,10 @@ final class LeaseRequest
 			'meta' => '%s',
 			'variation_id' => '%d',
 			'total_price' => '%d',
+			'requesting_vendor_id' => '%d',
 			'updated_at' => '%s',
 		];
-		foreach (['start_date','end_date','qty','notes','meta','variation_id','total_price'] as $col) {
+		foreach (['start_date','end_date','qty','notes','meta','variation_id','total_price','requesting_vendor_id'] as $col) {
 			if (!array_key_exists($col, $fields)) {
 				continue;
 			}
