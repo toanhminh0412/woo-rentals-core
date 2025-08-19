@@ -161,7 +161,7 @@ final class Rest
 		]);
 		
 		$payload = (array)$request->get_json_params();
-		$required = ['product_id', 'start_date', 'end_date', 'qty', 'requester_id'];
+		$required = ['product_id', 'start_date', 'end_date', 'qty', 'requester_id', 'requesting_vendor_id', 'total_price'];
 		foreach ($required as $fieldName) {
 			if (!array_key_exists($fieldName, $payload)) {
 				do_action('qm/warning', 'REST API validation failed: missing required field {missing_field}. Provided fields: {provided_fields}', [
@@ -179,7 +179,9 @@ final class Rest
 		$qty = max(1, (int)$payload['qty']);
 		$notes = isset($payload['notes']) ? sanitize_text_field((string)$payload['notes']) : null;
 		$meta = isset($payload['meta']) && is_array($payload['meta']) ? $payload['meta'] : [];
-		$requesterId = absint($payload['requester_id']);
+		$requesterId = get_current_user_id();
+		$requestingVendorId = absint($payload['requesting_vendor_id']);
+		$totalPrice = absint($payload['total_price']);
 
 		try {
 			$entity = new LeaseRequest(
@@ -221,7 +223,7 @@ final class Rest
 	{
 		$status = (string)$request->get_param('status');
 		$productId = absint((string)$request->get_param('product_id'));
-		$requesterId = absint((string)$request->get_param('requester_id'));
+        $requestingVendorId = absint((string)$request->get_param('requesting_vendor_id'));
 		$mine = filter_var((string)$request->get_param('mine'), FILTER_VALIDATE_BOOLEAN);
 		if ($mine) {
 			$requesterId = get_current_user_id();
@@ -234,6 +236,7 @@ final class Rest
 			'status' => $status ?: null,
 			'product_id' => $productId ?: null,
 			'requester_id' => $requesterId ?: null,
+			'requesting_vendor_id' => $requestingVendorId ?: null,
 		], $page, $perPage);
 
 		return new WP_REST_Response($result, 200);
@@ -346,6 +349,9 @@ final class Rest
 			do_action('qm/stop', 'wrc_api_update_request');
 			return new WP_Error('wrc_invalid_input', 'Invalid end_date format.', ['status' => 400]);
 		}
+        if (isset($toUpdate['total_price'])) {
+            $toUpdate['total_price'] = absint($toUpdate['total_price']);
+        }
 
 		try {
 			LeaseRequest::updateFields($id, $toUpdate);

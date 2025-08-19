@@ -29,6 +29,8 @@ class WRC_Lease_Requests_List_Table extends WP_List_Table
 			'requester' => __('Requester', 'woo-rentals-core'),
 			'period' => __('Period', 'woo-rentals-core'),
 			'qty' => __('Qty', 'woo-rentals-core'),
+			'vendor' => __('Vendor', 'woo-rentals-core'),
+			'total_price' => __('Total', 'woo-rentals-core'),
 			'status' => __('Status', 'woo-rentals-core'),
 			'created_at' => __('Created', 'woo-rentals-core'),
 		];
@@ -83,6 +85,16 @@ class WRC_Lease_Requests_List_Table extends WP_List_Table
 				return sprintf('%s → %s', esc_html($item['start_date']), esc_html($item['end_date']));
 			case 'qty':
 				return (int)$item['qty'];
+			case 'vendor':
+				$vendorId = isset($item['requesting_vendor_id']) ? (int)$item['requesting_vendor_id'] : 0;
+				$vendor = $vendorId ? get_userdata($vendorId) : false;
+				return $vendor ? sprintf('%s (ID %d)', esc_html($vendor->display_name), $vendorId) : sprintf('ID %d', $vendorId);
+			case 'total_price':
+				$amount = isset($item['total_price']) ? (float)$item['total_price'] : 0.0;
+				if (function_exists('wc_price')) {
+					return wp_kses_post(wc_price($amount));
+				}
+				return esc_html(number_format_i18n($amount, 2));
 			case 'status':
 				return esc_html((string)$item['status']);
 			case 'created_at':

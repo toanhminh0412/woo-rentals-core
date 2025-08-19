@@ -6,17 +6,21 @@ namespace WRC\Domain;
 
 final class LeaseRequest
 {
-	public const STATUS_PENDING = 'pending';
-	public const STATUS_APPROVED = 'approved';
+	public const STATUS_AWAITING_LESSEE_RESPONSE = 'awaiting lessee response';
+	public const STATUS_AWAITING_LESSOR_RESPONSE = 'awaiting lessor response';
+	public const STATUS_AWAITING_PAYMENT = 'awaiting payment';
+	public const STATUS_ACCEPTED = 'accepted';
 	public const STATUS_DECLINED = 'declined';
 	public const STATUS_CANCELLED = 'cancelled';
 
 	/** @var array<int, string> */
 	private static array $allowedStatuses = [
-		self::STATUS_PENDING,
-		self::STATUS_APPROVED,
+		self::STATUS_AWAITING_LESSEE_RESPONSE,
+		self::STATUS_AWAITING_LESSOR_RESPONSE,
+		self::STATUS_AWAITING_PAYMENT,
+		self::STATUS_ACCEPTED,
 		self::STATUS_DECLINED,
-		self::STATUS_CANCELLED,
+		self::STATUS_CANCELLED
 	];
 
 	private ?int $id;
@@ -32,7 +36,8 @@ final class LeaseRequest
 	private string $status;
 	private ?\DateTimeImmutable $createdAt;
 	private ?\DateTimeImmutable $updatedAt;
-
+	private int $totalPrice;
+	private int $requestingVendorId;
 	/**
 	 * @param array<string, mixed> $meta
 	 */
@@ -44,8 +49,10 @@ final class LeaseRequest
 		string $startDate,
 		string $endDate,
 		int $quantity,
-		string $status = self::STATUS_PENDING,
+		string $status = self::STATUS_AWAITING_LESSOR_RESPONSE,
 		?string $notes = null,
+		int $totalPrice,
+		int $requestingVendorId,
 		array $meta = [],
 		?\DateTimeImmutable $createdAt = null,
 		?\DateTimeImmutable $updatedAt = null
@@ -58,7 +65,8 @@ final class LeaseRequest
 		$this->notes = $notes;
 		$this->meta = self::assertJsonEncodableMap($meta, 'meta');
 		$this->status = self::assertAllowedStatus($status);
-
+		$this->totalPrice = self::assertPositiveInt($totalPrice, 'total_price');
+		$this->requestingVendorId = self::assertPositiveInt($requestingVendorId, 'requesting_vendor_id');
 		$tz = new \DateTimeZone('UTC');
 		$this->startDate = self::assertDateYmd($startDate, 'start_date', $tz);
 		$this->endDate = self::assertDateYmd($endDate, 'end_date', $tz);
@@ -81,6 +89,8 @@ final class LeaseRequest
 	public function getStatus(): string { return $this->status; }
 	public function getCreatedAt(): ?\DateTimeImmutable { return $this->createdAt; }
 	public function getUpdatedAt(): ?\DateTimeImmutable { return $this->updatedAt; }
+	public function getTotalPrice(): int { return $this->totalPrice; }
+	public function getRequestingVendorId(): int { return $this->requestingVendorId; }
 
 	private static function assertPositiveInt(int $value, string $fieldName): int
 	{
@@ -221,9 +231,11 @@ final class LeaseRequest
 				'notes' => $request->getNotes(),
 				'meta' => self::encodeMeta($request->getMeta()),
 				'status' => $request->getStatus(),
+				'total_price' => $request->getTotalPrice(),
+				'requesting_vendor_id' => $request->getRequestingVendorId(),
 				'created_at' => $nowUtc,
 			],
-			['%d','%d','%d','%s','%s','%d','%s','%s','%s','%s']
+			['%d','%d','%d','%s','%s','%d','%s','%s','%s','%d','%d','%s']
 		);
 		if ($inserted === false) {
 			do_action('qm/error', 'Failed to insert lease request: {wpdb_error}. Query: {wpdb_query}', [
@@ -434,6 +446,11 @@ final class LeaseRequest
 			throw new \RuntimeException('Lease request not found');
 		}
 
+        // Update status if lease request doesn't have a status yet
+        if ($existing['status'] === null) {
+            self::updateStatus($id, self::STATUS_AWAITING_LESSOR_RESPONSE);
+        }
+
 		$tz = new \DateTimeZone('UTC');
 		$startInput = array_key_exists('start_date', $fields) ? (string)$fields['start_date'] : (string)$existing['start_date'];
 		$endInput = array_key_exists('end_date', $fields) ? (string)$fields['end_date'] : (string)$existing['end_date'];
@@ -453,6 +470,7 @@ final class LeaseRequest
 			$variationInput = self::assertPositiveInt($variationInput, 'variation_id');
 		}
 		$meta = self::assertJsonEncodableMap($metaInput, 'meta');
+		$totalPriceInput = array_key_exists('total_price', $fields) ? (int)$fields['total_price'] : (int)$existing['total_price'];
 
 		do_action('qm/debug', 'Updating fields for lease request {id}: {fields}', [
 			'id' => $id,
@@ -467,6 +485,7 @@ final class LeaseRequest
 			'meta' => self::encodeMeta($meta),
 			// Only include variation_id if provided explicitly; null unsets
 			'variation_id' => $variationInput,
+			'total_price' => $totalPriceInput,
 			'updated_at' => gmdate('Y-m-d H:i:s'),
 		];
 
@@ -480,9 +499,10 @@ final class LeaseRequest
 			'notes' => '%s',
 			'meta' => '%s',
 			'variation_id' => '%d',
+			'total_price' => '%d',
 			'updated_at' => '%s',
 		];
-		foreach (['start_date','end_date','qty','notes','meta','variation_id'] as $col) {
+		foreach (['start_date','end_date','qty','notes','meta','variation_id','total_price'] as $col) {
 			if (!array_key_exists($col, $fields)) {
 				continue;
 			}
@@ -533,6 +553,8 @@ final class LeaseRequest
 			'notes' => $row->notes !== null ? (string)$row->notes : null,
 			'meta' => self::decodeMeta($row->meta ?? null),
 			'status' => (string)$row->status,
+			'total_price' => (int)$row->total_price,
+			'requesting_vendor_id' => (int)$row->requesting_vendor_id,
 			'created_at' => (string)$row->created_at,
 			'updated_at' => $row->updated_at !== null ? (string)$row->updated_at : null,
 		];

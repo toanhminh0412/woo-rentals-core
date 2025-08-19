@@ -6,7 +6,7 @@ namespace WRC\Infrastructure;
 
 final class Installer
 {
-	private const SCHEMA_VERSION = '2';
+	private const SCHEMA_VERSION = '3';
 	public function boot(): void
 	{
 		// Placeholder for any runtime setup needed later
@@ -64,8 +64,10 @@ final class Installer
 			end_date datetime NOT NULL,
 			qty int(11) NOT NULL DEFAULT 1,
 			notes text NULL,
+			total_price bigint(20) unsigned NOT NULL,
+			requesting_vendor_id bigint(20) unsigned NOT NULL,
 			meta longtext NULL,
-			status ENUM('pending','approved','declined','cancelled') NOT NULL DEFAULT 'pending',
+			status ENUM('awaiting lessee response','awaiting lessor response','awaiting payment','accepted','declined','cancelled') NOT NULL DEFAULT 'awaiting lessee response',
 			created_at datetime NOT NULL,
 			updated_at datetime DEFAULT NULL,
 			PRIMARY KEY  (id),

@@ -16,9 +16,26 @@ $request = $id ? \WRC\Domain\LeaseRequest::findByIdArray($id) : null;
 				<tr><th><?php esc_html_e('ID', 'woo-rentals-core'); ?></th><td><?php echo (int)$request['id']; ?></td></tr>
 				<tr><th><?php esc_html_e('Product', 'woo-rentals-core'); ?></th><td><?php echo (int)$request['product_id']; ?></td></tr>
 				<tr><th><?php esc_html_e('Requester', 'woo-rentals-core'); ?></th><td><?php echo (int)$request['requester_id']; ?></td></tr>
+				<tr><th><?php esc_html_e('Vendor', 'woo-rentals-core'); ?></th><td>
+					<?php 
+					$vendorId = isset($request['requesting_vendor_id']) ? (int)$request['requesting_vendor_id'] : 0; 
+					$vendor = $vendorId ? get_userdata($vendorId) : false; 
+					echo $vendor ? esc_html($vendor->display_name) . ' (ID ' . (int)$vendorId . ')' : (int)$vendorId; 
+					?>
+				</td></tr>
 				<tr><th><?php esc_html_e('Period', 'woo-rentals-core'); ?></th><td><?php echo esc_html($request['start_date'] . ' → ' . $request['end_date']); ?></td></tr>
 				<tr><th><?php esc_html_e('Quantity', 'woo-rentals-core'); ?></th><td><?php echo (int)$request['qty']; ?></td></tr>
 				<tr><th><?php esc_html_e('Notes', 'woo-rentals-core'); ?></th><td><?php echo isset($request['notes']) ? esc_html((string)$request['notes']) : ''; ?></td></tr>
+				<tr><th><?php esc_html_e('Total', 'woo-rentals-core'); ?></th><td>
+					<?php 
+					$amount = isset($request['total_price']) ? (float)$request['total_price'] : 0.0; 
+					if (function_exists('wc_price')) { 
+						echo wp_kses_post(wc_price($amount)); 
+					} else { 
+						echo esc_html(number_format_i18n($amount, 2)); 
+					} 
+					?>
+				</td></tr>
 				<tr><th><?php esc_html_e('Status', 'woo-rentals-core'); ?></th><td><?php echo esc_html((string)$request['status']); ?></td></tr>
 				<tr><th><?php esc_html_e('Created', 'woo-rentals-core'); ?></th><td><?php echo esc_html((string)$request['created_at']); ?></td></tr>
 				<tr><th><?php esc_html_e('Updated', 'woo-rentals-core'); ?></th><td><?php echo isset($request['updated_at']) ? esc_html((string)$request['updated_at']) : ''; ?></td></tr>

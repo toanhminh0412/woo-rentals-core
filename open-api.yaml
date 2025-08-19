@@ -24,12 +24,13 @@ components:
           additionalProperties: true
     LeaseRequest:
       type: object
-      required: [id, product_id, requester_id, start_date, end_date, qty, status, created_at]
+      required: [id, product_id, requester_id, requesting_vendor_id, start_date, end_date, qty, total_price, status, created_at]
       properties:
         id: { type: integer }
         product_id: { type: integer }
         variation_id: { type: integer, nullable: true }
         requester_id: { type: integer }
+        requesting_vendor_id: { type: integer }
         start_date: { type: string, format: date-time, example: "2025-08-16T08:00" }
         end_date: { type: string, format: date-time, example: "2025-08-20T17:00" }
         qty: { type: integer, minimum: 1 }
@@ -40,11 +41,12 @@ components:
         status:
           type: string
           enum: [pending, approved, declined, cancelled]
+        total_price: { type: integer, description: "Total price in store currency units (consistent with server usage)" }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time, nullable: true }
     LeaseRequestCreate:
       type: object
-      required: [product_id, start_date, end_date, qty]
+      required: [product_id, start_date, end_date, qty, requesting_vendor_id, total_price]
       properties:
         product_id: { type: integer }
         variation_id: { type: integer, nullable: true }
@@ -55,6 +57,8 @@ components:
         meta:
           type: object
           additionalProperties: true
+        requesting_vendor_id: { type: integer }
+        total_price: { type: integer, description: "Total price in store currency units (consistent with server usage)" }
     LeaseRequestListResponse:
       type: object
       required: [items, total, page, per_page]
@@ -162,6 +166,9 @@ paths:
         - in: query
           name: requester_id
           schema: { type: integer, description: Set automatically when mine=true }
+        - in: query
+          name: requesting_vendor_id
+          schema: { type: integer }
         - in: query
           name: mine
           schema: { type: boolean }
