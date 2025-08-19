@@ -30,9 +30,9 @@ $request = $id ? \WRC\Domain\LeaseRequest::findByIdArray($id) : null;
 					<?php 
 					$amount = isset($request['total_price']) ? (float)$request['total_price'] : 0.0; 
 					if (function_exists('wc_price')) { 
-						echo wp_kses_post(wc_price($amount)); 
+						echo wp_kses_post(wc_price($amount, array('currency' => 'VND'))); 
 					} else { 
-						echo esc_html(number_format_i18n($amount, 2)); 
+						echo esc_html(number_format_i18n($amount, 0) . ' ₫'); 
 					} 
 					?>
 				</td></tr>

@@ -92,9 +92,9 @@ class WRC_Lease_Requests_List_Table extends WP_List_Table
 			case 'total_price':
 				$amount = isset($item['total_price']) ? (float)$item['total_price'] : 0.0;
 				if (function_exists('wc_price')) {
-					return wp_kses_post(wc_price($amount));
+					return wp_kses_post(wc_price($amount, array('currency' => 'VND')));
 				}
-				return esc_html(number_format_i18n($amount, 2));
+				return esc_html(number_format_i18n($amount, 0) . ' ₫');
 			case 'status':
 				return esc_html((string)$item['status']);
 			case 'created_at':
