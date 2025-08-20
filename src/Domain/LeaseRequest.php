@@ -488,6 +488,25 @@ final class LeaseRequest
 		$providedCols['updated_at'] = $data['updated_at'];
 		$formats[] = '%s';
 
+		// Save snapshot to history if status is being updated
+		if (array_key_exists('status', $fields) && $fields['status'] !== $existing['status']) {
+			do_action('qm/debug', 'Saving lease request {id} snapshot to history before status update', ['id' => $id]);
+			try {
+				$historyEntity = new LeaseRequestHistory(
+					null,
+					$id,
+					[$existing]
+				);
+				LeaseRequestHistory::create($historyEntity);
+			} catch (\Exception $e) {
+				do_action('qm/warning', 'Failed to save lease request {id} history snapshot: {error}', [
+					'id' => $id,
+					'error' => $e->getMessage(),
+				]);
+				// Don't fail the update if history save fails, just log the warning
+			}
+		}
+
 		$result = $wpdb->update(
 			self::tableName(),
 			$providedCols,

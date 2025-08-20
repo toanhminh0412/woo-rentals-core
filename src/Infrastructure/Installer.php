@@ -6,7 +6,7 @@ namespace WRC\Infrastructure;
 
 final class Installer
 {
-	private const SCHEMA_VERSION = '4';
+	private const SCHEMA_VERSION = '5';
 	public function boot(): void
 	{
 		// Placeholder for any runtime setup needed later
@@ -23,6 +23,7 @@ final class Installer
 		if ($installedVersion !== self::SCHEMA_VERSION) {
 			self::create_lease_requests_table();
 			self::create_leases_table();
+			self::create_lease_request_history_table();
 			update_option('wrc_db_version', self::SCHEMA_VERSION);
 		}
 
@@ -109,6 +110,27 @@ final class Installer
 			KEY customer_id (customer_id),
 			KEY status (status),
 			KEY start_end (start_date, end_date)
+		) {$charsetCollate};";
+
+		dbDelta($sql);
+	}
+
+	private static function create_lease_request_history_table(): void
+	{
+		global $wpdb;
+
+		$tableName = $wpdb->prefix . 'wrc_lease_request_history';
+		$charsetCollate = $wpdb->get_charset_collate();
+
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+
+		$sql = "CREATE TABLE {$tableName} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			request_id bigint(20) unsigned NOT NULL,
+			history longtext NOT NULL,
+			created_at datetime NOT NULL,
+			PRIMARY KEY  (id),
+			KEY request_id (request_id)
 		) {$charsetCollate};";
 
 		dbDelta($sql);
