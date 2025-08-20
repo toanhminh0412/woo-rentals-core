@@ -46,14 +46,7 @@ final class Rest
 			],
 			[
 				'args' => [ 'id' => [ 'validate_callback' => static function ($param): bool { return is_numeric($param) && (int)$param > 0; } ] ],
-				'events' => 'status update',
-				'methods' => 'POST',
-				'callback' => [$this, 'update_request_status'],
-				'permission_callback' => [$this, 'permission_update_request_status'],
-			],
-			[
-				'args' => [ 'id' => [ 'validate_callback' => static function ($param): bool { return is_numeric($param) && (int)$param > 0; } ] ],
-				'methods' => 'PUT',
+				'methods' => WP_REST_Server::EDITABLE,
 				'callback' => [$this, 'update_request'],
 				'permission_callback' => [$this, 'permission_update_request'],
 			],
@@ -117,10 +110,7 @@ final class Rest
 		return current_user_can('manage_wrc_requests');
 	}
 
-	public function permission_update_request_status(WP_REST_Request $request): bool
-	{
-		return current_user_can('manage_wrc_requests');
-	}
+
 
 	public function permission_update_request(WP_REST_Request $request): bool
 	{
@@ -254,52 +244,7 @@ final class Rest
 		return new WP_REST_Response($record, 200);
 	}
 
-	public function update_request_status(WP_REST_Request $request): WP_REST_Response|WP_Error
-	{
-		do_action('qm/start', 'wrc_api_update_request_status');
-		
-		$id = absint($request['id']);
-		$payload = (array)$request->get_json_params();
-		$status = isset($payload['status']) ? (string)$payload['status'] : '';
-		
-		do_action('qm/debug', 'REST API: Updating lease request {id} status to {status} by user {user_id}', [
-			'id' => $id,
-			'status' => $status,
-			'user_id' => get_current_user_id(),
-		]);
-		
-		$allowedStatuses = [
-			LeaseRequest::STATUS_AWAITING_LESSEE_RESPONSE,
-			LeaseRequest::STATUS_AWAITING_LESSOR_RESPONSE,
-			LeaseRequest::STATUS_AWAITING_PAYMENT,
-			LeaseRequest::STATUS_ACCEPTED,
-			LeaseRequest::STATUS_DECLINED,
-			LeaseRequest::STATUS_CANCELLED,
-		];
-		if (!in_array($status, $allowedStatuses, true)) {
-			do_action('qm/warning', 'REST API: Invalid status {status} for request status update. Allowed statuses: {allowed_statuses}', [
-				'status' => $status,
-				'allowed_statuses' => $allowedStatuses,
-			]);
-			do_action('qm/stop', 'wrc_api_update_request_status');
-			return new WP_Error('wrc_invalid_status', 'Invalid status.', ['status' => 400]);
-		}
-		$existing = LeaseRequest::findByIdArray($id);
-		if ($existing === null) {
-			do_action('qm/warning', 'REST API: Lease request {id} not found for status update', ['id' => $id]);
-			do_action('qm/stop', 'wrc_api_update_request_status');
-			return new WP_Error('wrc_not_found', 'Lease request not found.', ['status' => 404]);
-		}
-		
-		LeaseRequest::updateStatus($id, $status);
-		
-		do_action('qm/info', 'REST API: Lease request {id} status updated to {new_status}', [
-			'id' => $id,
-			'new_status' => $status,
-		]);
-		do_action('qm/stop', 'wrc_api_update_request_status');
-		return new WP_REST_Response(LeaseRequest::findByIdArray($id), 200);
-	}
+
 
 	public function update_request(WP_REST_Request $request): WP_REST_Response|WP_Error
 	{
@@ -313,7 +258,7 @@ final class Rest
 		}
 
 		$payload = (array)$request->get_json_params();
-		$allowedKeys = ['start_date','end_date','qty','notes','meta','variation_id','total_price','requesting_vendor_id'];
+		$allowedKeys = ['start_date','end_date','qty','notes','meta','variation_id','status','total_price','requesting_vendor_id'];
 		$toUpdate = [];
 		foreach ($allowedKeys as $key) {
 			if (array_key_exists($key, $payload)) {
@@ -353,6 +298,25 @@ final class Rest
         if (isset($toUpdate['requesting_vendor_id'])) {
             $toUpdate['requesting_vendor_id'] = absint($toUpdate['requesting_vendor_id']);
         }
+		if (isset($toUpdate['status'])) {
+			$status = (string)$toUpdate['status'];
+			$allowedStatuses = [
+				LeaseRequest::STATUS_AWAITING_LESSEE_RESPONSE,
+				LeaseRequest::STATUS_AWAITING_LESSOR_RESPONSE,
+				LeaseRequest::STATUS_AWAITING_PAYMENT,
+				LeaseRequest::STATUS_ACCEPTED,
+				LeaseRequest::STATUS_DECLINED,
+				LeaseRequest::STATUS_CANCELLED,
+			];
+			if (!in_array($status, $allowedStatuses, true)) {
+				do_action('qm/warning', 'REST API: Invalid status {status} for request update. Allowed statuses: {allowed_statuses}', [
+					'status' => $status,
+					'allowed_statuses' => $allowedStatuses,
+				]);
+				do_action('qm/stop', 'wrc_api_update_request');
+				return new WP_Error('wrc_invalid_status', 'Invalid status.', ['status' => 400]);
+			}
+		}
 		try {
 			LeaseRequest::updateFields($id, $toUpdate);
 		} catch (\InvalidArgumentException $e) {

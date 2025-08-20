@@ -322,37 +322,7 @@ final class LeaseRequest
 		];
 	}
 
-	public static function updateStatus(int $id, string $status): void
-	{
-		global $wpdb;
-		
-		do_action('qm/debug', 'Updating lease request {id} status to {new_status}', [
-			'id' => $id,
-			'new_status' => $status,
-		]);
-		
-		$result = $wpdb->update(
-			self::tableName(),
-			['status' => $status, 'updated_at' => gmdate('Y-m-d H:i:s')],
-			['id' => $id],
-			['%s','%s'],
-			['%d']
-		);
-		
-		if ($result === false) {
-			do_action('qm/error', 'Failed to update lease request {id} status to {status}: {wpdb_error}', [
-				'id' => $id,
-				'status' => $status,
-				'wpdb_error' => $wpdb->last_error,
-			]);
-		} else {
-			do_action('qm/info', 'Lease request {id} status updated to {status} ({rows_affected} rows affected)', [
-				'id' => $id,
-				'status' => $status,
-				'rows_affected' => $result,
-			]);
-		}
-	}
+
 
 	public static function deleteById(int $id): bool
 	{
@@ -435,7 +405,7 @@ final class LeaseRequest
 	/**
 	 * Update selected fields of a lease request.
 	 *
-	 * @param array{start_date?:string,end_date?:string,qty?:int,notes?:string|null,meta?:array,variation_id?:int|null} $fields
+	 * @param array{start_date?:string,end_date?:string,qty?:int,notes?:string|null,meta?:array,variation_id?:int|null,status?:string,total_price?:int,requesting_vendor_id?:int} $fields
 	 */
 	public static function updateFields(int $id, array $fields): void
 	{
@@ -446,11 +416,6 @@ final class LeaseRequest
 			throw new \RuntimeException('Lease request not found');
 		}
 
-        // Update status if lease request doesn't have a status yet
-        if ($existing['status'] === null) {
-            self::updateStatus($id, self::STATUS_AWAITING_LESSOR_RESPONSE);
-        }
-
 		$tz = new \DateTimeZone('UTC');
 		$startInput = array_key_exists('start_date', $fields) ? (string)$fields['start_date'] : (string)$existing['start_date'];
 		$endInput = array_key_exists('end_date', $fields) ? (string)$fields['end_date'] : (string)$existing['end_date'];
@@ -460,6 +425,7 @@ final class LeaseRequest
 		$variationInput = array_key_exists('variation_id', $fields)
 			? ($fields['variation_id'] !== null ? (int)$fields['variation_id'] : null)
 			: ($existing['variation_id'] !== null ? (int)$existing['variation_id'] : null);
+		$statusInput = array_key_exists('status', $fields) ? (string)$fields['status'] : (string)$existing['status'];
 
 		// Validate using domain validators
 		$start = self::assertDateYmd($startInput, 'start_date', $tz);
@@ -470,6 +436,7 @@ final class LeaseRequest
 			$variationInput = self::assertPositiveInt($variationInput, 'variation_id');
 		}
 		$meta = self::assertJsonEncodableMap($metaInput, 'meta');
+		$status = self::assertAllowedStatus($statusInput);
 		$totalPriceInput = array_key_exists('total_price', $fields) ? (int)$fields['total_price'] : (int)$existing['total_price'];
         $requestingVendorIdInput = array_key_exists('requesting_vendor_id', $fields) ? (int)$fields['requesting_vendor_id'] : (int)$existing['requesting_vendor_id'];
 		do_action('qm/debug', 'Updating fields for lease request {id}: {fields}', [
@@ -485,6 +452,7 @@ final class LeaseRequest
 			'meta' => self::encodeMeta($meta),
 			// Only include variation_id if provided explicitly; null unsets
 			'variation_id' => $variationInput,
+			'status' => $status,
 			'total_price' => $totalPriceInput,
 			'requesting_vendor_id' => $requestingVendorIdInput,
 			'updated_at' => gmdate('Y-m-d H:i:s'),
@@ -500,11 +468,12 @@ final class LeaseRequest
 			'notes' => '%s',
 			'meta' => '%s',
 			'variation_id' => '%d',
+			'status' => '%s',
 			'total_price' => '%d',
 			'requesting_vendor_id' => '%d',
 			'updated_at' => '%s',
 		];
-		foreach (['start_date','end_date','qty','notes','meta','variation_id','total_price','requesting_vendor_id'] as $col) {
+		foreach (['start_date','end_date','qty','notes','meta','variation_id','status','total_price','requesting_vendor_id'] as $col) {
 			if (!array_key_exists($col, $fields)) {
 				continue;
 			}
