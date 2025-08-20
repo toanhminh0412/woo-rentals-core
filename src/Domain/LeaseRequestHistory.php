@@ -210,6 +210,51 @@ final class LeaseRequestHistory
 		}
 	}
 
+    public static function updateFields(int $id, array $fields): void
+    {
+        global $wpdb;
+        
+        $existing = self::findByIdArray($id);
+        if ($existing === null) {
+            throw new \RuntimeException('Lease request history not found');
+        }
+
+        $requestId = array_key_exists('request_id', $fields) ? (int)$fields['request_id'] : (int)$existing['request_id'];
+        $history = array_key_exists('history', $fields) ? $fields['history'] : $existing['history'];
+        
+        $requestId = self::assertPositiveInt($requestId, 'request_id');
+        $history = self::assertJsonEncodableArray($history, 'history');
+
+        $providedCols = [];
+        $formats = [];
+        $map = [
+            'request_id' => '%d',
+            'history' => '%s',
+        ];
+        foreach (['request_id', 'history'] as $col) {
+            if (!array_key_exists($col, $fields)) {
+                continue;
+            }
+            $providedCols[$col] = $fields[$col];
+            $formats[] = $map[$col];
+        }
+
+        $wpdb->update(self::tableName(), $providedCols, ['id' => $id], $formats, ['%d']);
+    }
+
+    public static function addRequestToHistory(int $requestHistoryId, array $request)
+    {
+        $requestHistory = self::findByIdArray($requestHistoryId);
+        if ($requestHistory === null) {
+            throw new \RuntimeException('Request history not found');
+        }
+        $history = self::decodeHistory($requestHistory['history']);
+        $history[] = $request;
+        self::updateFields($requestHistoryId, [
+            'history' => $history
+        ]);
+    }
+
 	/** @return array<string,mixed> */
 	public static function mapRowToArray(object $row): array
 	{

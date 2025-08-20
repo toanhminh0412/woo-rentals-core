@@ -249,7 +249,15 @@ final class LeaseRequest
 		$newId = (int)$wpdb->insert_id;
 		do_action('qm/info', 'Lease request created successfully with ID {id}', ['id' => $newId]);
 		do_action('qm/stop', 'wrc_lease_request_create');
-		
+
+        // Create a history record for the request
+        $historyEntity = new LeaseRequestHistory(
+            null,
+            $newId,
+            []
+        );
+        LeaseRequestHistory::create($historyEntity);
+
 		return $newId;
 	}
 
@@ -492,12 +500,17 @@ final class LeaseRequest
 		if (array_key_exists('status', $fields) && $fields['status'] !== $existing['status']) {
 			do_action('qm/debug', 'Saving lease request {id} snapshot to history before status update', ['id' => $id]);
 			try {
-				$historyEntity = new LeaseRequestHistory(
-					null,
-					$id,
-					[$existing]
-				);
-				LeaseRequestHistory::create($historyEntity);
+                $historyEntity = LeaseRequestHistory::findByRequestIdArray($id);
+                if (!is_array($historyEntity) || empty($historyEntity)) {
+                    $historyEntity = new LeaseRequestHistory(
+                        null,
+                        $id,
+                        [$existing]
+                    );
+                    LeaseRequestHistory::create($historyEntity);
+                } else {
+                    LeaseRequestHistory::addRequestToHistory($historyEntity[0]['id'], $existing);
+                }
 			} catch (\Exception $e) {
 				do_action('qm/warning', 'Failed to save lease request {id} history snapshot: {error}', [
 					'id' => $id,
