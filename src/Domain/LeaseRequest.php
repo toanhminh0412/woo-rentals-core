@@ -6,12 +6,12 @@ namespace WRC\Domain;
 
 final class LeaseRequest
 {
-	public const STATUS_AWAITING_LESSEE_RESPONSE = 'awaiting lessee response';
-	public const STATUS_AWAITING_LESSOR_RESPONSE = 'awaiting lessor response';
-	public const STATUS_AWAITING_PAYMENT = 'awaiting payment';
-	public const STATUS_ACCEPTED = 'accepted';
-	public const STATUS_DECLINED = 'declined';
-	public const STATUS_CANCELLED = 'cancelled';
+	public const STATUS_AWAITING_LESSEE_RESPONSE = "awaiting lessee's response";
+	public const STATUS_AWAITING_LESSOR_RESPONSE = "awaiting lessor's response";
+	public const STATUS_AWAITING_PAYMENT = "awaiting payment";
+	public const STATUS_ACCEPTED = "accepted";
+	public const STATUS_DECLINED = "declined";
+	public const STATUS_CANCELLED = "cancelled";
 
 	/** @var array<int, string> */
 	private static array $allowedStatuses = [
