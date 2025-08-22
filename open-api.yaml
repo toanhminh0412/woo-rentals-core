@@ -40,7 +40,7 @@ components:
           additionalProperties: true
         status:
           type: string
-          enum: [pending, approved, declined, cancelled]
+          enum: ["awaiting lessee's response", "awaiting lessor's response", "awaiting payment", "accepted", "declined", "cancelled"]
         total_price: { type: integer, description: "Total price in store currency units (consistent with server usage)" }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time, nullable: true }
@@ -80,6 +80,11 @@ components:
           type: object
           additionalProperties: true
         variation_id: { type: integer, nullable: true }
+        status:
+          type: string
+          enum: ["awaiting lessee's response", "awaiting lessor's response", "awaiting payment", "accepted", "declined", "cancelled"]
+        total_price: { type: integer, description: "Total price in store currency units" }
+        requesting_vendor_id: { type: integer }
     RequestStatusUpdate:
       type: object
       required: [action]
@@ -159,7 +164,7 @@ paths:
       parameters:
         - in: query
           name: status
-          schema: { type: string, enum: [pending, approved, declined, cancelled] }
+          schema: { type: string, enum: ["awaiting lessee's response", "awaiting lessor's response", "awaiting payment", "accepted", "declined", "cancelled"] }
         - in: query
           name: product_id
           schema: { type: integer }
@@ -202,23 +207,23 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/LeaseRequest' }
         '404': { description: Not found, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
-    post:
+    put:
       tags: [Lease Requests]
-      summary: Update lease request status
-      description: Accepts POST (and other editable methods) to change status.
+      summary: Update a lease request
+      description: Update editable fields of a lease request (dates, quantity, notes, meta, variation, status, total_price, requesting_vendor_id).
       security: [{ cookieAuth: [] }]
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/RequestStatusUpdate' }
+            schema: { $ref: '#/components/schemas/LeaseRequestUpdate' }
       responses:
         '200':
           description: Updated
           content:
             application/json:
               schema: { $ref: '#/components/schemas/LeaseRequest' }
-        '400': { description: Invalid action, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '400': { description: Invalid input, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '404': { description: Not found, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
     patch:
       tags: [Lease Requests]
