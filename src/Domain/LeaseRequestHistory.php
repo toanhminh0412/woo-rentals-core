@@ -32,10 +32,6 @@ final class LeaseRequestHistory
 	private static function assertPositiveInt(int $value, string $fieldName): int
 	{
 		if ($value <= 0) {
-			do_action('qm/warning', 'Validation failed: {field} must be positive (got {value})', [
-				'field' => $fieldName,
-				'value' => $value,
-			]);
 			throw new \InvalidArgumentException(sprintf('%s must be a positive integer', $fieldName));
 		}
 		return $value;
@@ -100,11 +96,7 @@ final class LeaseRequestHistory
 	{
 		global $wpdb;
 		
-		do_action('qm/start', 'wrc_lease_request_history_create');
-		
-		do_action('qm/debug', 'Creating new lease request history for request {request_id}', [
-			'request_id' => $history->getRequestId(),
-		]);
+
 		
 		$inserted = $wpdb->insert(
 			self::tableName(),
@@ -117,17 +109,10 @@ final class LeaseRequestHistory
 		);
 		
 		if ($inserted === false) {
-			do_action('qm/error', 'Failed to insert lease request history: {wpdb_error}. Query: {wpdb_query}', [
-				'wpdb_error' => $wpdb->last_error,
-				'wpdb_query' => $wpdb->last_query,
-			]);
-			do_action('qm/stop', 'wrc_lease_request_history_create');
 			throw new \RuntimeException('Failed to insert lease request history');
 		}
 		
 		$newId = (int)$wpdb->insert_id;
-		do_action('qm/info', 'Lease request history created successfully with ID {id}', ['id' => $newId]);
-		do_action('qm/stop', 'wrc_lease_request_history_create');
 		
 		return $newId;
 	}
@@ -146,9 +131,7 @@ final class LeaseRequestHistory
 	{
 		global $wpdb;
 		
-		do_action('qm/debug', 'Finding lease request history for request {request_id}', [
-			'request_id' => $requestId,
-		]);
+
 		
 		$sql = 'SELECT * FROM ' . self::tableName() . ' WHERE request_id = %d ORDER BY created_at DESC';
 		$rows = $wpdb->get_results($wpdb->prepare($sql, [$requestId]));
@@ -160,7 +143,7 @@ final class LeaseRequestHistory
 	{
 		global $wpdb;
 		
-		do_action('qm/debug', 'Deleting lease request history {id}', ['id' => $id]);
+
 		
 		$result = $wpdb->delete(
 			self::tableName(),
@@ -169,16 +152,8 @@ final class LeaseRequestHistory
 		);
 		
 		if ($result === false) {
-			do_action('qm/error', 'Failed to delete lease request history {id}: {wpdb_error}', [
-				'id' => $id,
-				'wpdb_error' => $wpdb->last_error,
-			]);
 			return false;
 		} else {
-			do_action('qm/info', 'Lease request history {id} deleted ({rows_affected} rows affected)', [
-				'id' => $id,
-				'rows_affected' => $result,
-			]);
 			return $result > 0;
 		}
 	}
@@ -187,7 +162,7 @@ final class LeaseRequestHistory
 	{
 		global $wpdb;
 		
-		do_action('qm/debug', 'Deleting all lease request history for request {request_id}', ['request_id' => $requestId]);
+
 		
 		$result = $wpdb->delete(
 			self::tableName(),
@@ -196,16 +171,8 @@ final class LeaseRequestHistory
 		);
 		
 		if ($result === false) {
-			do_action('qm/error', 'Failed to delete lease request history for request {request_id}: {wpdb_error}', [
-				'request_id' => $requestId,
-				'wpdb_error' => $wpdb->last_error,
-			]);
 			return 0;
 		} else {
-			do_action('qm/info', 'Deleted {rows_affected} lease request history records for request {request_id}', [
-				'request_id' => $requestId,
-				'rows_affected' => $result,
-			]);
 			return (int)$result;
 		}
 	}

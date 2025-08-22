@@ -48,11 +48,7 @@ final class ProductHooks
 	 */
 	private function cleanup_rental_data(int $productId, string $hookName): void
 	{
-		do_action('qm/start', 'wrc_product_deletion_cleanup');
-		do_action('qm/info', 'Product {product_id} is being deleted via {hook_name}. Cleaning up rental data.', [
-			'product_id' => $productId,
-			'hook_name' => $hookName,
-		]);
+
 
 		try {
 			// Delete lease requests first (they might reference leases)
@@ -61,22 +57,13 @@ final class ProductHooks
 			// Delete leases
 			$deletedLeases = Lease::deleteByProductId($productId);
 
-			do_action('qm/info', 'Product {product_id} cleanup completed: {deleted_requests} lease requests and {deleted_leases} leases removed', [
-				'product_id' => $productId,
-				'deleted_requests' => $deletedRequests,
-				'deleted_leases' => $deletedLeases,
-			]);
+
 
 			// Fire custom action for other plugins/extensions to hook into
 			do_action('wrc_product_deleted', $productId, $deletedRequests, $deletedLeases);
 
 		} catch (\Exception $e) {
-			do_action('qm/error', 'Error cleaning up rental data for product {product_id}: {error_message}', [
-				'product_id' => $productId,
-				'error_message' => $e->getMessage(),
-			]);
-		} finally {
-			do_action('qm/stop', 'wrc_product_deletion_cleanup');
+			// Error occurred during cleanup, but we still need to continue with product deletion
 		}
 	}
 }

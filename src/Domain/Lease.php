@@ -91,10 +91,6 @@ final class Lease
 	private static function assertPositiveInt(int $value, string $fieldName): int
 	{
 		if ($value <= 0) {
-			do_action('qm/warning', 'Validation failed: {field} must be positive (got {value})', [
-				'field' => $fieldName,
-				'value' => $value,
-			]);
 			throw new \InvalidArgumentException(sprintf('%s must be a positive integer', $fieldName));
 		}
 		return $value;
@@ -111,10 +107,6 @@ final class Lease
 	private static function assertAllowedStatus(string $status): string
 	{
 		if (!in_array($status, self::$allowedStatuses, true)) {
-			do_action('qm/warning', 'Invalid lease status: {provided_status}. Allowed statuses: {allowed_statuses}', [
-				'provided_status' => $status,
-				'allowed_statuses' => self::$allowedStatuses,
-			]);
 			throw new \InvalidArgumentException('Invalid status');
 		}
 		return $status;
@@ -131,11 +123,6 @@ final class Lease
 				// Try date-only format with time set to 00:00:00
 				$dt = \DateTimeImmutable::createFromFormat('!Y-m-d', $datetime, $tz);
 				if ($dt === false || $dt->format('Y-m-d') !== $datetime) {
-					do_action('qm/warning', 'Invalid datetime format for {field}: {provided_datetime} (expected {expected_format})', [
-						'field' => $fieldName,
-						'provided_datetime' => $datetime,
-						'expected_format' => 'YYYY-MM-DDTHH:MM, YYYY-MM-DD HH:MM:SS, or YYYY-MM-DD',
-					]);
 					throw new \InvalidArgumentException(sprintf('%s must be in YYYY-MM-DDTHH:MM, YYYY-MM-DD HH:MM:SS, or YYYY-MM-DD format', $fieldName));
 				}
 			}
@@ -146,10 +133,6 @@ final class Lease
 	private static function assertStartBeforeOrEqualEnd(\DateTimeImmutable $start, \DateTimeImmutable $end): void
 	{
 		if ($start > $end) {
-			do_action('qm/warning', 'Date range validation failed: {start_date} is after {end_date}', [
-				'start_date' => $start->format('Y-m-d\TH:i'),
-				'end_date' => $end->format('Y-m-d\TH:i'),
-			]);
 			throw new \InvalidArgumentException('start_date must be before or equal to end_date');
 		}
 	}
@@ -202,18 +185,7 @@ final class Lease
 	{
 		global $wpdb;
 		
-		// Start timing the database operation
-		do_action('qm/start', 'wrc_lease_create');
-		
-		do_action('qm/debug', 'Creating new lease for product {product_id} with {quantity} units and {status} status for customer {customer_id} ({start_date} to {end_date})', [
-			'product_id' => $lease->getProductId(),
-			'customer_id' => $lease->getCustomerId(),
-			'start_date' => $lease->getStartDate()->format('Y-m-d\TH:i'),
-			'end_date' => $lease->getEndDate()->format('Y-m-d\TH:i'),
-			'quantity' => $lease->getQuantity(),
-			'status' => $lease->getStatus(),
-			'request_id' => $lease->getRequestId(),
-		]);
+
 		
 		$nowUtc = gmdate('Y-m-d H:i:s');
 		$inserted = $wpdb->insert(
@@ -236,17 +208,10 @@ final class Lease
 		);
 
 		if ($inserted === false) {
-			do_action('qm/error', 'Failed to insert lease: {wpdb_error}. Query: {wpdb_query}', [
-				'wpdb_error' => $wpdb->last_error,
-				'wpdb_query' => $wpdb->last_query,
-			]);
-			do_action('qm/stop', 'wrc_lease_create');
 			throw new \RuntimeException('Failed to insert lease');
 		}
 		
 		$newId = (int)$wpdb->insert_id;
-		do_action('qm/info', 'Lease created successfully with ID {id}', ['id' => $newId]);
-		do_action('qm/stop', 'wrc_lease_create');
 		
 		return $newId;
 	}
@@ -268,8 +233,7 @@ final class Lease
 	{
 		global $wpdb;
 		
-		do_action('qm/start', 'wrc_lease_list');
-		do_action('qm/debug', 'Listing leases with filters: {filters}', ['filters' => $filters]);
+
 		
 		$where = [];
 		$args = [];
@@ -294,9 +258,6 @@ final class Lease
 		
 		$items = array_map([self::class, 'mapRowToArray'], $rows ?: []);
 		
-		do_action('qm/info', 'Retrieved {items_returned} leases', ['items_returned' => count($items)]);
-		do_action('qm/stop', 'wrc_lease_list');
-		
 		return $items;
 	}
 
@@ -304,10 +265,7 @@ final class Lease
 	{
 		global $wpdb;
 		
-		do_action('qm/debug', 'Updating lease {id} status to {new_status}', [
-			'id' => $id,
-			'new_status' => $status,
-		]);
+
 		
 		$result = $wpdb->update(
 			self::tableName(),
@@ -317,31 +275,18 @@ final class Lease
 			['%d']
 		);
 		
-		if ($result === false) {
-			do_action('qm/error', 'Failed to update lease {id} status to {status}: {wpdb_error}', [
-				'id' => $id,
-				'status' => $status,
-				'wpdb_error' => $wpdb->last_error,
-			]);
-		} else {
-			do_action('qm/info', 'Lease {id} status updated to {status} ({rows_affected} rows affected)', [
-				'id' => $id,
-				'status' => $status,
-				'rows_affected' => $result,
-			]);
-		}
+
 	}
 
 	public static function deleteById(int $id): bool
 	{
 		global $wpdb;
 		
-		do_action('qm/debug', 'Deleting lease {id}', ['id' => $id]);
+
 		
 		// Check if the record exists first
 		$exists = self::findByIdArray($id);
 		if (!$exists) {
-			do_action('qm/warning', 'Attempted to delete non-existent lease {id}', ['id' => $id]);
 			return false;
 		}
 		
@@ -352,16 +297,8 @@ final class Lease
 		);
 		
 		if ($result === false) {
-			do_action('qm/error', 'Failed to delete lease {id}: {wpdb_error}', [
-				'id' => $id,
-				'wpdb_error' => $wpdb->last_error,
-			]);
 			return false;
 		} else {
-			do_action('qm/info', 'Lease {id} deleted ({rows_affected} rows affected)', [
-				'id' => $id,
-				'rows_affected' => $result,
-			]);
 			return $result > 0;
 		}
 	}
@@ -370,14 +307,13 @@ final class Lease
 	{
 		global $wpdb;
 		
-		do_action('qm/debug', 'Deleting all leases for product {product_id}', ['product_id' => $productId]);
+
 		
 		// Get count before deletion for logging
 		$countSql = 'SELECT COUNT(*) FROM ' . self::tableName() . ' WHERE product_id = %d';
 		$count = (int)$wpdb->get_var($wpdb->prepare($countSql, [$productId]));
 		
 		if ($count === 0) {
-			do_action('qm/info', 'No leases found for product {product_id}', ['product_id' => $productId]);
 			return 0;
 		}
 		
@@ -388,16 +324,8 @@ final class Lease
 		);
 		
 		if ($result === false) {
-			do_action('qm/error', 'Failed to delete leases for product {product_id}: {wpdb_error}', [
-				'product_id' => $productId,
-				'wpdb_error' => $wpdb->last_error,
-			]);
 			return 0;
 		} else {
-			do_action('qm/info', 'Deleted {rows_affected} leases for product {product_id}', [
-				'product_id' => $productId,
-				'rows_affected' => $result,
-			]);
 			return (int)$result;
 		}
 	}

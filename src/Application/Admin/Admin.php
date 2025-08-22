@@ -55,26 +55,20 @@ final class Admin
 		
 		// Handle delete action
 		if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['id']) && isset($_GET['_wpnonce'])) {
-			\do_action('qm/debug', 'Admin: Processing delete request for ID {id}', ['id' => (int)$_GET['id']]);
-			
 			if (!\wp_verify_nonce((string)$_GET['_wpnonce'], 'delete_request_' . (int)$_GET['id'])) {
-				\do_action('qm/error', 'Admin: Nonce verification failed for delete request {id}', ['id' => (int)$_GET['id']]);
 				\wp_die(\__('Security check failed.', 'woo-rentals-core'));
 			}
 			
 			$id = (int)$_GET['id'];
-			\do_action('qm/info', 'Admin: Attempting to delete lease request {id}', ['id' => $id]);
 			$deleted = \WRC\Domain\LeaseRequest::deleteById($id);
 			
 			if ($deleted) {
-				\do_action('qm/info', 'Admin: Successfully deleted lease request {id}', ['id' => $id]);
 				\wp_redirect(\add_query_arg([
 					'page' => 'wrc_rentals_requests',
 					'deleted' => '1'
 				], \admin_url('admin.php')));
 				exit;
 			} else {
-				\do_action('qm/error', 'Admin: Failed to delete lease request {id}', ['id' => $id]);
 				\wp_redirect(\add_query_arg([
 					'page' => 'wrc_rentals_requests',
 					'delete_error' => '1'

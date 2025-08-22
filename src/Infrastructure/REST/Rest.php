@@ -144,21 +144,12 @@ final class Rest
 	// Handlers — Requests
 	public function create_request(WP_REST_Request $request): WP_REST_Response|WP_Error
 	{
-		do_action('qm/start', 'wrc_api_create_request');
-		do_action('qm/debug', 'REST API: Creating lease request via {endpoint} for user {user_id}', [
-			'user_id' => get_current_user_id(),
-			'endpoint' => 'POST /wrc/v1/requests',
-		]);
+
 		
 		$payload = (array)$request->get_json_params();
 		$required = ['product_id', 'start_date', 'end_date', 'qty', 'requester_id', 'requesting_vendor_id', 'total_price'];
 		foreach ($required as $fieldName) {
 			if (!array_key_exists($fieldName, $payload)) {
-				do_action('qm/warning', 'REST API validation failed: missing required field {missing_field}. Provided fields: {provided_fields}', [
-					'missing_field' => $fieldName,
-					'provided_fields' => array_keys($payload),
-				]);
-				do_action('qm/stop', 'wrc_api_create_request');
 				return new WP_Error('wrc_missing_field', sprintf('Missing required field: %s', $fieldName), ['status' => 400]);
 			}
 		}
@@ -189,25 +180,15 @@ final class Rest
 				$meta
 			);
 		} catch (\InvalidArgumentException $e) {
-			do_action('qm/warning', 'REST API: Invalid input for lease request creation: {error}', [
-				'error' => $e->getMessage()
-			]);
-			do_action('qm/stop', 'wrc_api_create_request');
 			return new WP_Error('wrc_invalid_input', $e->getMessage(), ['status' => 400]);
 		}
 
 		try {
 			$id = LeaseRequest::create($entity);
 		} catch (\RuntimeException $e) {
-			do_action('qm/error', 'REST API: Database error creating lease request: {error}', [
-				'error' => $e->getMessage(),
-			]);
-			do_action('qm/stop', 'wrc_api_create_request');
 			return new WP_Error('wrc_db_error', 'Failed to create lease request.', ['status' => 500]);
 		}
 
-		do_action('qm/info', 'REST API: Lease request created successfully with ID {id}', ['id' => $id]);
-		do_action('qm/stop', 'wrc_api_create_request');
 		return new WP_REST_Response(LeaseRequest::findByIdArray($id), 201);
 	}
 
@@ -248,12 +229,9 @@ final class Rest
 
 	public function update_request(WP_REST_Request $request): WP_REST_Response|WP_Error
 	{
-		do_action('qm/start', 'wrc_api_update_request');
 		$id = absint($request['id']);
 		$existing = LeaseRequest::findByIdArray($id);
 		if ($existing === null) {
-			do_action('qm/warning', 'REST API: Lease request {id} not found for update', ['id' => $id]);
-			do_action('qm/stop', 'wrc_api_update_request');
 			return new WP_Error('wrc_not_found', 'Lease request not found.', ['status' => 404]);
 		}
 
@@ -266,8 +244,6 @@ final class Rest
 			}
 		}
 		if ($toUpdate === []) {
-			do_action('qm/warning', 'REST API: No updatable fields provided for lease request {id}', ['id' => $id]);
-			do_action('qm/stop', 'wrc_api_update_request');
 			return new WP_Error('wrc_no_fields', 'No updatable fields provided.', ['status' => 400]);
 		}
 
@@ -285,11 +261,9 @@ final class Rest
 			$toUpdate['variation_id'] = absint($toUpdate['variation_id']) ?: null;
 		}
 		if (isset($toUpdate['start_date']) && !$this->is_valid_date((string)$toUpdate['start_date'])) {
-			do_action('qm/stop', 'wrc_api_update_request');
 			return new WP_Error('wrc_invalid_input', 'Invalid start_date format.', ['status' => 400]);
 		}
 		if (isset($toUpdate['end_date']) && !$this->is_valid_date((string)$toUpdate['end_date'])) {
-			do_action('qm/stop', 'wrc_api_update_request');
 			return new WP_Error('wrc_invalid_input', 'Invalid end_date format.', ['status' => 400]);
 		}
         if (isset($toUpdate['total_price'])) {
@@ -309,53 +283,29 @@ final class Rest
 				LeaseRequest::STATUS_CANCELLED,
 			];
 			if (!in_array($status, $allowedStatuses, true)) {
-				do_action('qm/warning', 'REST API: Invalid status {status} for request update. Allowed statuses: {allowed_statuses}', [
-					'status' => $status,
-					'allowed_statuses' => $allowedStatuses,
-				]);
-				do_action('qm/stop', 'wrc_api_update_request');
 				return new WP_Error('wrc_invalid_status', 'Invalid status.', ['status' => 400]);
 			}
 		}
 		try {
 			LeaseRequest::updateFields($id, $toUpdate);
 		} catch (\InvalidArgumentException $e) {
-			do_action('qm/warning', 'REST API: Invalid input for lease request update: {error}', [
-				'error' => $e->getMessage()
-			]);
-			do_action('qm/stop', 'wrc_api_update_request');
 			return new WP_Error('wrc_invalid_input', $e->getMessage(), ['status' => 400]);
 		} catch (\RuntimeException $e) {
-			do_action('qm/error', 'REST API: Database error updating lease request: {error}', [
-				'error' => $e->getMessage(),
-			]);
-			do_action('qm/stop', 'wrc_api_update_request');
 			return new WP_Error('wrc_db_error', 'Failed to update lease request.', ['status' => 500]);
 		}
 
-		do_action('qm/info', 'REST API: Lease request {id} updated', ['id' => $id]);
-		do_action('qm/stop', 'wrc_api_update_request');
 		return new WP_REST_Response(LeaseRequest::findByIdArray($id), 200);
 	}
 
 	// Handlers — Leases
 	public function create_lease(WP_REST_Request $request): WP_REST_Response|WP_Error
 	{
-		do_action('qm/start', 'wrc_api_create_lease');
-		do_action('qm/debug', 'REST API: Creating lease via {endpoint} for user {user_id}', [
-			'user_id' => get_current_user_id(),
-			'endpoint' => 'POST /wrc/v1/leases',
-		]);
+
 		
 		$payload = (array)$request->get_json_params();
 		$required = ['product_id', 'customer_id', 'start_date', 'end_date', 'qty'];
 		foreach ($required as $fieldName) {
 			if (!array_key_exists($fieldName, $payload)) {
-				do_action('qm/warning', 'REST API validation failed: missing required field {missing_field} for lease. Provided fields: {provided_fields}', [
-					'missing_field' => $fieldName,
-					'provided_fields' => array_keys($payload),
-				]);
-				do_action('qm/stop', 'wrc_api_create_lease');
 				return new WP_Error('wrc_missing_field', sprintf('Missing required field: %s', $fieldName), ['status' => 400]);
 			}
 		}
@@ -384,25 +334,15 @@ final class Rest
 				$meta
 			);
 		} catch (\InvalidArgumentException $e) {
-			do_action('qm/warning', 'REST API: Invalid input for lease creation: {error}', [
-				'error' => $e->getMessage()
-			]);
-			do_action('qm/stop', 'wrc_api_create_lease');
 			return new WP_Error('wrc_invalid_input', $e->getMessage(), ['status' => 400]);
 		}
 
 		try {
 			$id = Lease::create($entity);
 		} catch (\RuntimeException $e) {
-			do_action('qm/error', 'REST API: Database error creating lease: {error}', [
-				'error' => $e->getMessage(),
-			]);
-			do_action('qm/stop', 'wrc_api_create_lease');
 			return new WP_Error('wrc_db_error', 'Failed to create lease.', ['status' => 500]);
 		}
 		
-		do_action('qm/info', 'REST API: Lease created successfully with ID {id}', ['id' => $id]);
-		do_action('qm/stop', 'wrc_api_create_lease');
 		return new WP_REST_Response(Lease::findByIdArray($id), 201);
 	}
 

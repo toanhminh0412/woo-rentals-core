@@ -95,10 +95,6 @@ final class LeaseRequest
 	private static function assertPositiveInt(int $value, string $fieldName): int
 	{
 		if ($value <= 0) {
-			do_action('qm/warning', 'Validation failed: {field} must be positive (got {value})', [
-				'field' => $fieldName,
-				'value' => $value,
-			]);
 			throw new \InvalidArgumentException(sprintf('%s must be a positive integer', $fieldName));
 		}
 		return $value;
@@ -115,9 +111,6 @@ final class LeaseRequest
 	private static function assertAllowedStatus(string $status): string
 	{
 		if (!in_array($status, self::$allowedStatuses, true)) {
-			do_action('qm/warning', 'Invalid lease request status: {provided_status}', [
-				'provided_status' => $status
-			]);
 			throw new \InvalidArgumentException('Invalid status');
 		}
 		return $status;
@@ -134,11 +127,6 @@ final class LeaseRequest
 				// Try date-only format with time set to 00:00:00
 				$dt = \DateTimeImmutable::createFromFormat('!Y-m-d', $datetime, $tz);
 				if ($dt === false || $dt->format('Y-m-d') !== $datetime) {
-					do_action('qm/warning', 'Invalid datetime format for {field}: {provided_datetime} (expected {expected_format})', [
-						'field' => $fieldName,
-						'provided_datetime' => $datetime,
-						'expected_format' => 'YYYY-MM-DDTHH:MM, YYYY-MM-DD HH:MM:SS, or YYYY-MM-DD',
-					]);
 					throw new \InvalidArgumentException(sprintf('%s must be in YYYY-MM-DDTHH:MM, YYYY-MM-DD HH:MM:SS, or YYYY-MM-DD format', $fieldName));
 				}
 			}
@@ -149,10 +137,6 @@ final class LeaseRequest
 	private static function assertStartBeforeOrEqualEnd(\DateTimeImmutable $start, \DateTimeImmutable $end): void
 	{
 		if ($start > $end) {
-			do_action('qm/warning', 'Date range validation failed: {start_date} is after {end_date}', [
-				'start_date' => $start->format('Y-m-d\TH:i'),
-				'end_date' => $end->format('Y-m-d\TH:i'),
-			]);
 			throw new \InvalidArgumentException('start_date must be before or equal to end_date');
 		}
 	}
@@ -206,17 +190,7 @@ final class LeaseRequest
 	{
 		global $wpdb;
 		
-		// Start timing the database operation
-		do_action('qm/start', 'wrc_lease_request_create');
-		
-		do_action('qm/debug', 'Creating new lease request for product {product_id} with {quantity} units and {status} status by user {requester_id} ({start_date} to {end_date})', [
-			'product_id' => $request->getProductId(),
-			'requester_id' => $request->getRequesterId(),
-			'start_date' => $request->getStartDate()->format('Y-m-d\TH:i'),
-			'end_date' => $request->getEndDate()->format('Y-m-d\TH:i'),
-			'quantity' => $request->getQuantity(),
-			'status' => $request->getStatus(),
-		]);
+
 		
 		$nowUtc = gmdate('Y-m-d H:i:s');
 		$inserted = $wpdb->insert(
@@ -238,17 +212,10 @@ final class LeaseRequest
 			['%d','%d','%d','%s','%s','%d','%s','%s','%s','%d','%d','%s']
 		);
 		if ($inserted === false) {
-			do_action('qm/error', 'Failed to insert lease request: {wpdb_error}. Query: {wpdb_query}', [
-				'wpdb_error' => $wpdb->last_error,
-				'wpdb_query' => $wpdb->last_query,
-			]);
-			do_action('qm/stop', 'wrc_lease_request_create');
 			throw new \RuntimeException('Failed to insert lease request');
 		}
 		
 		$newId = (int)$wpdb->insert_id;
-		do_action('qm/info', 'Lease request created successfully with ID {id}', ['id' => $newId]);
-		do_action('qm/stop', 'wrc_lease_request_create');
 
         // Create a history record for the request
         $historyEntity = new LeaseRequestHistory(
@@ -278,12 +245,7 @@ final class LeaseRequest
 	{
 		global $wpdb;
 		
-		do_action('qm/start', 'wrc_lease_request_list');
-		do_action('qm/debug', 'Listing lease requests (page {page}, {per_page} per page) with filters: {filters}', [
-			'filters' => $filters,
-			'page' => $page,
-			'per_page' => $perPage,
-		]);
+
 		
 		$where = [];
 		$args = [];
@@ -316,12 +278,6 @@ final class LeaseRequest
 		$rows = $wpdb->get_results($wpdb->prepare($listSql, $listArgs));
 		$items = array_map([self::class, 'mapRowToArray'], $rows ?: []);
 
-		do_action('qm/info', 'Retrieved {items_returned} lease requests (total: {total_found})', [
-			'total_found' => $total,
-			'items_returned' => count($items),
-		]);
-		do_action('qm/stop', 'wrc_lease_request_list');
-
 		return [
 			'items' => $items,
 			'total' => $total,
@@ -336,12 +292,11 @@ final class LeaseRequest
 	{
 		global $wpdb;
 		
-		do_action('qm/debug', 'Deleting lease request {id}', ['id' => $id]);
+
 		
 		// Check if the record exists first
 		$exists = self::findByIdArray($id);
 		if (!$exists) {
-			do_action('qm/warning', 'Attempted to delete non-existent lease request {id}', ['id' => $id]);
 			return false;
 		}
 		
@@ -352,16 +307,8 @@ final class LeaseRequest
 		);
 		
 		if ($result === false) {
-			do_action('qm/error', 'Failed to delete lease request {id}: {wpdb_error}', [
-				'id' => $id,
-				'wpdb_error' => $wpdb->last_error,
-			]);
 			return false;
 		} else {
-			do_action('qm/info', 'Lease request {id} deleted ({rows_affected} rows affected)', [
-				'id' => $id,
-				'rows_affected' => $result,
-			]);
 			return $result > 0;
 		}
 	}
@@ -370,14 +317,13 @@ final class LeaseRequest
 	{
 		global $wpdb;
 		
-		do_action('qm/debug', 'Deleting all lease requests for product {product_id}', ['product_id' => $productId]);
+
 		
 		// Get count before deletion for logging
 		$countSql = 'SELECT COUNT(*) FROM ' . self::tableName() . ' WHERE product_id = %d';
 		$count = (int)$wpdb->get_var($wpdb->prepare($countSql, [$productId]));
 		
 		if ($count === 0) {
-			do_action('qm/info', 'No lease requests found for product {product_id}', ['product_id' => $productId]);
 			return 0;
 		}
 		
@@ -388,16 +334,8 @@ final class LeaseRequest
 		);
 		
 		if ($result === false) {
-			do_action('qm/error', 'Failed to delete lease requests for product {product_id}: {wpdb_error}', [
-				'product_id' => $productId,
-				'wpdb_error' => $wpdb->last_error,
-			]);
 			return 0;
 		} else {
-			do_action('qm/info', 'Deleted {rows_affected} lease requests for product {product_id}', [
-				'product_id' => $productId,
-				'rows_affected' => $result,
-			]);
 			return (int)$result;
 		}
 	}
@@ -447,10 +385,7 @@ final class LeaseRequest
 		$status = self::assertAllowedStatus($statusInput);
 		$totalPriceInput = array_key_exists('total_price', $fields) ? (int)$fields['total_price'] : (int)$existing['total_price'];
         $requestingVendorIdInput = array_key_exists('requesting_vendor_id', $fields) ? (int)$fields['requesting_vendor_id'] : (int)$existing['requesting_vendor_id'];
-		do_action('qm/debug', 'Updating fields for lease request {id}: {fields}', [
-			'id' => $id,
-			'fields' => array_keys($fields),
-		]);
+
 
 		$data = [
 			'start_date' => $start->format('Y-m-d H:i:s'),
@@ -498,7 +433,6 @@ final class LeaseRequest
 
 		// Save snapshot to history if status is being updated
 		if (array_key_exists('status', $fields) && $fields['status'] !== $existing['status']) {
-			do_action('qm/debug', 'Saving lease request {id} snapshot to history before status update', ['id' => $id]);
 			try {
                 $historyEntity = LeaseRequestHistory::findByRequestIdArray($id);
                 if (!is_array($historyEntity) || empty($historyEntity)) {
@@ -512,10 +446,6 @@ final class LeaseRequest
                     LeaseRequestHistory::addRequestToHistory($historyEntity[0]['id'], $existing);
                 }
 			} catch (\Exception $e) {
-				do_action('qm/warning', 'Failed to save lease request {id} history snapshot: {error}', [
-					'id' => $id,
-					'error' => $e->getMessage(),
-				]);
 				// Don't fail the update if history save fails, just log the warning
 			}
 		}
@@ -529,17 +459,10 @@ final class LeaseRequest
 		);
 
 		if ($result === false) {
-			do_action('qm/error', 'Failed to update lease request {id}: {wpdb_error}', [
-				'id' => $id,
-				'wpdb_error' => $wpdb->last_error,
-			]);
 			throw new \RuntimeException('Failed to update lease request');
 		}
 
-		do_action('qm/info', 'Lease request {id} updated ({rows_affected} rows affected)', [
-			'id' => $id,
-			'rows_affected' => $result,
-		]);
+
 	}
 
 	/** @return array<string,mixed> */
