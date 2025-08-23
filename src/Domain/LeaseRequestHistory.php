@@ -191,6 +191,7 @@ final class LeaseRequestHistory
         
         $requestId = self::assertPositiveInt($requestId, 'request_id');
         $history = self::assertJsonEncodableArray($history, 'history');
+		$history = self::encodeHistory($history);
 
         $providedCols = [];
         $formats = [];
@@ -215,10 +216,10 @@ final class LeaseRequestHistory
         if ($requestHistory === null) {
             throw new \RuntimeException('Request history not found');
         }
-        $history = self::decodeHistory($requestHistory['history']);
+        $history = $requestHistory['history'];
         $history[] = $request;
         self::updateFields($requestHistoryId, [
-            'history' => $history
+            'history' => $history,
         ]);
     }
 
