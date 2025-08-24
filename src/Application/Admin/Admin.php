@@ -101,12 +101,12 @@ final class Admin
 			if (array_key_exists('variation_id', $_POST)) { $toUpdate['variation_id'] = $_POST['variation_id'] === '' ? null : absint((string)$_POST['variation_id']); }
 			if (isset($_POST['customer_id'])) { $toUpdate['customer_id'] = absint((string)$_POST['customer_id']); }
 			if (array_key_exists('request_id', $_POST)) { $toUpdate['request_id'] = $_POST['request_id'] === '' ? null : absint((string)$_POST['request_id']); }
-			if (isset($_POST['start_date'])) { $toUpdate['start_date'] = sanitize_text_field((string)$_POST['start_date']); }
-			if (isset($_POST['end_date'])) { $toUpdate['end_date'] = sanitize_text_field((string)$_POST['end_date']); }
+			if (isset($_POST['start_date'])) { $toUpdate['start_date'] = sanitize_text_field((string)wp_unslash($_POST['start_date'])); }
+			if (isset($_POST['end_date'])) { $toUpdate['end_date'] = sanitize_text_field((string)wp_unslash($_POST['end_date'])); }
 			if (isset($_POST['qty'])) { $toUpdate['qty'] = max(1, (int)$_POST['qty']); }
-			if (isset($_POST['status'])) { $toUpdate['status'] = sanitize_text_field((string)$_POST['status']); }
+			if (isset($_POST['status'])) { $toUpdate['status'] = sanitize_text_field((string)wp_unslash($_POST['status'])); }
 			if (isset($_POST['meta'])) {
-				$metaRaw = (string)$_POST['meta'];
+				$metaRaw = (string)wp_unslash($_POST['meta']);
 				$decoded = json_decode($metaRaw, true);
 				if ($metaRaw !== '' && !is_array($decoded)) {
 					$redirect = \add_query_arg([
