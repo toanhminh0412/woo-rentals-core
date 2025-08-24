@@ -34,8 +34,38 @@ $list_url = add_query_arg([
 		<table class="form-table" role="presentation">
 			<tbody>
 				<tr>
-					<th scope="row"><label for="product_id"><?php esc_html_e('Product ID', 'woo-rentals-core'); ?></label></th>
-					<td><input name="product_id" id="product_id" type="number" class="regular-text" value="<?php echo esc_attr((string)$lease['product_id']); ?>" required /></td>
+					<th scope="row"><label for="product_id"><?php esc_html_e('Product', 'woo-rentals-core'); ?></label></th>
+					<td>
+						<?php 
+							$currentProductId = (int)$lease['product_id'];
+							$products = function_exists('wc_get_products') ? wc_get_products([
+								'limit' => 500,
+								'orderby' => 'title',
+								'order' => 'ASC',
+								'status' => 'publish',
+							]) : [];
+						?>
+						<?php if (!empty($products)): ?>
+							<select name="product_id" id="product_id" required>
+								<?php foreach ($products as $product): ?>
+									<?php 
+										/** @var WC_Product $product */
+										$pid = (int)$product->get_id();
+										$name = (string)$product->get_name();
+										$authorId = (int)get_post_field('post_author', $pid);
+										$vendor = $authorId ? get_userdata($authorId) : false;
+										$vendorName = $vendor && $vendor->display_name !== '' ? $vendor->display_name : ('ID ' . $authorId);
+									?>
+									<option value="<?php echo esc_attr((string)$pid); ?>" <?php selected($currentProductId, $pid); ?>>
+										<?php echo esc_html(sprintf('%s — %s (ID %d)', $name !== '' ? $name : ('#' . $pid), $vendorName, $pid)); ?>
+									</option>
+								<?php endforeach; ?>
+							</select>
+						<?php else: ?>
+							<input name="product_id" id="product_id" type="number" class="regular-text" value="<?php echo esc_attr((string)$lease['product_id']); ?>" required />
+							<p class="description"><?php esc_html_e('WooCommerce is not available or no products found. Enter Product ID.', 'woo-rentals-core'); ?></p>
+						<?php endif; ?>
+					</td>
 				</tr>
 				<tr>
 					<th scope="row"><label for="variation_id"><?php esc_html_e('Variation ID', 'woo-rentals-core'); ?></label></th>
