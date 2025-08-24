@@ -46,8 +46,13 @@ class WRC_Leases_List_Table extends WP_List_Table
 	{
 		switch ($column_name) {
 			case 'id':
+				$edit_url = add_query_arg([
+					'page' => 'wrc_rentals_leases',
+					'action' => 'edit',
+					'id' => (int)$item['id']
+				], admin_url('admin.php'));
 				$actions = [
-					'view' => sprintf('<a href="%s">%s</a>', '#', esc_html__('View', 'woo-rentals-core')),
+					'edit' => sprintf('<a href="%s">%s</a>', esc_url($edit_url), esc_html__('Edit', 'woo-rentals-core')),
 					'complete' => sprintf('<a href="#" data-action="complete" data-id="%d">%s</a>', (int)$item['id'], esc_html__('Complete', 'woo-rentals-core')),
 					'cancel' => sprintf('<a href="#" data-action="cancel" data-id="%d">%s</a>', (int)$item['id'], esc_html__('Cancel', 'woo-rentals-core')),
 				];

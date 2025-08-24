@@ -278,6 +278,121 @@ final class Lease
 
 	}
 
+	/**
+	 * Update selected fields of a lease.
+	 *
+	 * @param array{product_id?:int,variation_id?:int|null,order_id?:int|null,order_item_id?:int|null,customer_id?:int,request_id?:int|null,start_date?:string,end_date?:string,qty?:int,status?:string,meta?:array} $fields
+	 */
+	public static function updateFields(int $id, array $fields): void
+	{
+		global $wpdb;
+
+		$existing = self::findByIdArray($id);
+		if ($existing === null) {
+			throw new \RuntimeException('Lease not found');
+		}
+
+		$tz = new \DateTimeZone('UTC');
+		$startInput = array_key_exists('start_date', $fields) ? (string)$fields['start_date'] : (string)$existing['start_date'];
+		$endInput = array_key_exists('end_date', $fields) ? (string)$fields['end_date'] : (string)$existing['end_date'];
+		$qtyInput = array_key_exists('qty', $fields) ? (int)$fields['qty'] : (int)$existing['qty'];
+		$productIdInput = array_key_exists('product_id', $fields) ? (int)$fields['product_id'] : (int)$existing['product_id'];
+		$customerIdInput = array_key_exists('customer_id', $fields) ? (int)$fields['customer_id'] : (int)$existing['customer_id'];
+		$requestIdInput = array_key_exists('request_id', $fields)
+			? ($fields['request_id'] !== null ? (int)$fields['request_id'] : null)
+			: ($existing['request_id'] !== null ? (int)$existing['request_id'] : null);
+		$variationInput = array_key_exists('variation_id', $fields)
+			? ($fields['variation_id'] !== null ? (int)$fields['variation_id'] : null)
+			: ($existing['variation_id'] !== null ? (int)$existing['variation_id'] : null);
+		$orderIdInput = array_key_exists('order_id', $fields)
+			? ($fields['order_id'] !== null ? (int)$fields['order_id'] : null)
+			: ($existing['order_id'] !== null ? (int)$existing['order_id'] : null);
+		$orderItemIdInput = array_key_exists('order_item_id', $fields)
+			? ($fields['order_item_id'] !== null ? (int)$fields['order_item_id'] : null)
+			: ($existing['order_item_id'] !== null ? (int)$existing['order_item_id'] : null);
+		$metaInput = array_key_exists('meta', $fields) ? (is_array($fields['meta']) ? $fields['meta'] : []) : (is_array($existing['meta']) ? $existing['meta'] : []);
+		$statusInput = array_key_exists('status', $fields) ? (string)$fields['status'] : (string)$existing['status'];
+
+		// Validate using domain validators
+		$start = self::assertDateYmd($startInput, 'start_date', $tz);
+		$end = self::assertDateYmd($endInput, 'end_date', $tz);
+		self::assertStartBeforeOrEqualEnd($start, $end);
+		$qty = self::assertMinInt($qtyInput, 1, 'qty');
+		$productId = self::assertPositiveInt($productIdInput, 'product_id');
+		$customerId = self::assertPositiveInt($customerIdInput, 'customer_id');
+		if ($requestIdInput !== null) {
+			$requestIdInput = self::assertPositiveInt($requestIdInput, 'request_id');
+		}
+		if ($variationInput !== null) {
+			$variationInput = self::assertPositiveInt($variationInput, 'variation_id');
+		}
+		if ($orderIdInput !== null) {
+			$orderIdInput = self::assertPositiveInt($orderIdInput, 'order_id');
+		}
+		if ($orderItemIdInput !== null) {
+			$orderItemIdInput = self::assertPositiveInt($orderItemIdInput, 'order_item_id');
+		}
+		$meta = self::assertJsonEncodableMap($metaInput, 'meta');
+		$status = self::assertAllowedStatus($statusInput);
+
+		$data = [
+			'product_id' => $productId,
+			'variation_id' => $variationInput,
+			'order_id' => $orderIdInput,
+			'order_item_id' => $orderItemIdInput,
+			'customer_id' => $customerId,
+			'request_id' => $requestIdInput,
+			'start_date' => $start->format('Y-m-d H:i:s'),
+			'end_date' => $end->format('Y-m-d H:i:s'),
+			'qty' => $qty,
+			'meta' => self::encodeMeta($meta),
+			'status' => $status,
+			'updated_at' => gmdate('Y-m-d H:i:s'),
+		];
+
+		$providedCols = [];
+		$formats = [];
+		$map = [
+			'product_id' => '%d',
+			'variation_id' => '%d',
+			'order_id' => '%d',
+			'order_item_id' => '%d',
+			'customer_id' => '%d',
+			'request_id' => '%d',
+			'start_date' => '%s',
+			'end_date' => '%s',
+			'qty' => '%d',
+			'meta' => '%s',
+			'status' => '%s',
+			'updated_at' => '%s',
+		];
+		foreach (['product_id','variation_id','order_id','order_item_id','customer_id','request_id','start_date','end_date','qty','meta','status'] as $col) {
+			if (!array_key_exists($col, $fields)) {
+				continue;
+			}
+			// Skip updating variation_id/order_id/order_item_id/request_id when explicitly set to null to avoid forcing 0
+			if (in_array($col, ['variation_id','order_id','order_item_id','request_id'], true) && $fields[$col] === null) {
+				continue;
+			}
+			$providedCols[$col] = $data[$col];
+			$formats[] = $map[$col];
+		}
+		// Always include updated_at
+		$providedCols['updated_at'] = $data['updated_at'];
+		$formats[] = '%s';
+
+		$result = $wpdb->update(
+			self::tableName(),
+			$providedCols,
+			['id' => $id],
+			$formats,
+			['%d']
+		);
+		if ($result === false) {
+			throw new \RuntimeException('Failed to update lease');
+		}
+	}
+
 	public static function deleteById(int $id): bool
 	{
 		global $wpdb;
