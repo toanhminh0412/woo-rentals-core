@@ -42,8 +42,25 @@ $list_url = add_query_arg([
 					<td><input name="variation_id" id="variation_id" type="number" class="regular-text" value="<?php echo esc_attr($lease['variation_id'] !== null ? (string)$lease['variation_id'] : ''); ?>" placeholder="<?php esc_attr_e('Optional', 'woo-rentals-core'); ?>" /></td>
 				</tr>
 				<tr>
-					<th scope="row"><label for="customer_id"><?php esc_html_e('Customer ID', 'woo-rentals-core'); ?></label></th>
-					<td><input name="customer_id" id="customer_id" type="number" class="regular-text" value="<?php echo esc_attr((string)$lease['customer_id']); ?>" required /></td>
+					<th scope="row"><label for="customer_id"><?php esc_html_e('Customer', 'woo-rentals-core'); ?></label></th>
+					<td>
+						<?php 
+							$currentCustomerId = (int)$lease['customer_id'];
+							$users = get_users([
+								'fields' => ['ID','display_name'],
+								'orderby' => 'display_name',
+								'order' => 'ASC',
+								'number' => 500,
+							]);
+						?>
+						<select name="customer_id" id="customer_id" required>
+							<?php foreach ($users as $user): ?>
+								<option value="<?php echo esc_attr((string)$user->ID); ?>" <?php selected($currentCustomerId, (int)$user->ID); ?>>
+									<?php echo esc_html(sprintf('%s (ID %d)', $user->display_name !== '' ? $user->display_name : ('user_' . (int)$user->ID), (int)$user->ID)); ?>
+								</option>
+							<?php endforeach; ?>
+						</select>
+					</td>
 				</tr>
 				<tr>
 					<th scope="row"><label for="request_id"><?php esc_html_e('Request ID', 'woo-rentals-core'); ?></label></th>
